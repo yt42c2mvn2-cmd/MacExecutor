@@ -63,3 +63,27 @@ loading are under our control. A modified Roblox Player is not promised.
 - [Apple Hardened Runtime](https://developer.apple.com/documentation/security/hardened-runtime)
 - [Apple Disable Library Validation entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.cs.disable-library-validation)
 - [Roblox modified client guidance](https://en.help.roblox.com/hc/en-us/articles/24275616578708-Anti-cheat-Messages)
+
+## v1.5: launch the exact pristine copy
+
+After creating a verified workspace, use **Launch Unmodified Working Copy**
+in the same Settings card. Confirm the prompt. Rebilium:
+
+1. Re-reads the workspace's external manifest and checks its identity.
+2. Re-hashes the original and copied Player executables.
+3. Re-verifies both app signatures using macOS codesign.
+4. Asks LaunchServices to start a *new app instance* using the exact
+   copied Roblox.app URL, without substituting a running installed copy.
+5. Checks the reported application bundle path, displays the process ID,
+   then records `launched: true` in the external manifest.
+
+No bundled files, entitlements or code signatures are altered. Roblox may
+independently update itself, reject launch without its normal website launcher,
+or display an error. If macOS returns a different app URL, Rebilium says the
+launch identity wasn't verified rather than reporting success. It doesn't
+terminate other running Roblox apps.
+
+This normal-launch baseline should **not** be described as an injector,
+a modified game client, or proof of executing an in-game script like
+Infinite Yield. The known signed Hardened Runtime protections still apply,
+and any attempt to modify the binary would invalidate the signature.
