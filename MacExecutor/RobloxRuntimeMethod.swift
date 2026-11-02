@@ -175,10 +175,10 @@ enum RobloxRuntimeMethod {
         let manager = FileManager.default
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .totalFileAllocatedSizeKey, .fileAllocatedSizeKey]
         guard let iterator = manager.enumerator(at: source, includingPropertiesForKeys: Array(keys),
-                                                options: [.skipsPackageDescendants]) else {
+                                                options: []) else {
             throw MethodError.notRobloxPlayer
         }
-        // Enumerate contents *inside* Roblox.app, including nested app bundles.
+        // Enumerate all descendants, including nested app bundles and frameworks.
         var result: Int64 = 0
         for case let item as URL in iterator {
             let metadata = try item.resourceValues(forKeys: keys)
