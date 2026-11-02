@@ -4,6 +4,31 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.3 — preview and approve script imports into Studio
+
+Rebilium can now offer a selected Luau script to a **paired local Roblox
+Studio plugin**, but **nothing runs automatically**:
+
+1. Start the existing Python host; pair the Studio plugin using the new
+   session token in Terminal.
+2. Select a script in Rebilium. Under **Settings → Native backend lab**, paste
+   the same token and click **Send Selected Script to Studio**.
+3. In Studio click **Fetch script preview**, inspect the source, and explicitly
+   click **Approve: import inert ModuleScript**. The plugin creates a new
+   ModuleScript under ServerStorage and updates its editor source through
+   Roblox Studio's ScriptEditorService. ModuleScripts aren't executed
+   automatically in this location.
+
+The host holds a single offer in memory for at most ten minutes, capped at
+64 KiB of UTF-8 source. Upload, preview and acknowledgement require the
+temporary session token. A new offer replaces an older one. Nothing is
+synced to or executed inside the ordinary Roblox Player.
+
+See the [Studio plugin setup](Experiments/RobloxStudioPlugin/README.md).
+Existing local Studio plugin installs must be updated to gain the preview
+buttons. CI tests the Python protocol; the actual plugin UI and editor import
+still require manual validation in Roblox Studio.
+
 ## v1.2 — first permission-based Roblox Studio handshake
 
 Rebilium now includes a **local Roblox Studio plugin**, installed only by the
