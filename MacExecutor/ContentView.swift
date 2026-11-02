@@ -34,6 +34,8 @@ struct ContentView: View {
     @State private var consoleOutput = "Ready. Select your Luau executable, then run a script."
     @State private var isRunning = false
     @State private var backendDiagnostic = "Not tested"
+    @State private var loopbackDiagnostic = "Not tested — start the host in Terminal first."
+    @State private var isCheckingLoopback = false
     @State private var isRenaming = false
     @State private var renameID: UUID?
     @State private var renameText = ""
@@ -335,7 +337,7 @@ struct ContentView: View {
                     Label("Native backend lab", systemImage: "cpu")
                         .font(.headline)
 
-                    Text("We verified a Delta-style native-library loading pattern in a separate test host. This app test validates the versioned ping/pong messaging layer in memory; neither test connects to Roblox.")
+                    Text("Test the in-memory protocol, then send an actual ping to a separate localhost process. These tests never contact Roblox.")
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.7))
                         .fixedSize(horizontal: false, vertical: true)
@@ -360,6 +362,60 @@ struct ContentView: View {
                             .textSelection(.enabled)
                             .accessibilityIdentifier("bridgeSelfTestStatus")
                     }
+
+                    Divider().opacity(0.25)
+
+                    Text("1. In Terminal, from the project folder, run:")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.7))
+
+                    Text("python3 Experiments/LoopbackHost/host.py")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(RebiliumStyle.blue)
+                        .textSelection(.enabled)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            isCheckingLoopback = true
+                            loopbackDiagnostic = "Contacting test host on 127.0.0.1:37827…"
+                            Task {
+                                do {
+                                    let report = try await Task.detached(
+                                        priority: .userInitiated
+                                    ) {
+                                        try LocalBridgeClient.ping()
+                                    }.value
+                                    loopbackDiagnostic =
+                                        "Connected to local test host — \(report.requestBytes) request bytes, \(report.responseBytes) reply bytes. No Roblox connection."
+                                } catch {
+                                    loopbackDiagnostic = "Not connected — \(error.localizedDescription)"
+                                }
+                                isCheckingLoopback = false
+                            }
+                        } label: {
+                            Label("Ping Separate Test Host", systemImage: "network")
+                        }
+                        .buttonStyle(.glass)
+                        .disabled(isCheckingLoopback)
+                        .accessibilityIdentifier("pingSeparateHostButton")
+
+                        if isCheckingLoopback {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+
+                    Text(loopbackDiagnostic)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.74))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("externalHostPingStatus")
+
+                    Text("2. Check the Terminal output for the matching ping. Stop the host with Control+C and try again to confirm the disconnected state.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
