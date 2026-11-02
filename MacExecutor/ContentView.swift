@@ -19,6 +19,7 @@ private enum RebiliumPage: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @StateObject private var library = ScriptLibrary()
+    @StateObject private var robloxInspector = RobloxClientInspector()
     @State private var currentPage: RebiliumPage = .scripts
     // Track the capsule continuously while the pointer is held down.
     @State private var navigationDragOffset: CGFloat?
@@ -85,6 +86,25 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 930, minHeight: 630)
+        .onAppear {
+            robloxInspector.refresh()
+        }
+        // macOS sends these events even when Rebilium is not the frontmost app.
+        // We only re-read the public application list; we never contact Roblox.
+        .onReceive(
+            NSWorkspace.shared.notificationCenter.publisher(
+                for: NSWorkspace.didLaunchApplicationNotification
+            )
+        ) { _ in
+            robloxInspector.refresh()
+        }
+        .onReceive(
+            NSWorkspace.shared.notificationCenter.publisher(
+                for: NSWorkspace.didTerminateApplicationNotification
+            )
+        ) { _ in
+            robloxInspector.refresh()
+        }
         .alert("Rename Script", isPresented: $isRenaming) {
             TextField("Script name", text: $renameText)
             Button("Rename") {
@@ -233,13 +253,19 @@ struct ContentView: View {
 
             HStack(spacing: 6) {
                 Circle()
-                    .fill(RebiliumStyle.blue)
+                    .fill(
+                        robloxInspector.snapshot.presence == .running
+                            ? RebiliumStyle.blue
+                            : .white.opacity(0.4)
+                    )
                     .frame(width: 7, height: 7)
-                Text("Local Workspace")
+                Text(robloxInspector.snapshot.title)
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.63))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
+            .help("Roblox presence only. No connection has been attempted.")
         }
         .padding(.horizontal, 5)
     }
@@ -282,58 +308,66 @@ struct ContentView: View {
     }
 
     private var settingsPage: some View {
-        VStack(alignment: .leading, spacing: 19) {
-            Text("Settings")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-            Text("Customize your local Rebilium workspace.")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.6))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 17) {
+                Text("Settings")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
 
-            VStack(alignment: .leading, spacing: 13) {
-                Label("Luau interpreter", systemImage: "terminal")
-                    .font(.headline)
-                Text("Choose the executable you built from the official Luau project.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(selectedLuauPath)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .textSelection(.enabled)
-                Button(action: chooseLuau) {
-                    Label("Choose Luau executable", systemImage: "folder")
+                Text("Configure Rebilium and inspect local Roblox Player presence.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.6))
+
+                RobloxClientCheckView(inspector: robloxInspector)
+
+                VStack(alignment: .leading, spacing: 13) {
+                    Label("Luau interpreter", systemImage: "terminal")
+                        .font(.headline)
+
+                    Text("Choose the executable you built from the official Luau project.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text(selectedLuauPath)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .textSelection(.enabled)
+
+                    Button(action: chooseLuau) {
+                        Label("Choose Luau executable", systemImage: "folder")
+                    }
+                    .buttonStyle(RebiliumGradientButtonStyle())
                 }
-                .buttonStyle(RebiliumGradientButtonStyle())
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Local script storage", systemImage: "externaldrive")
+                        .font(.headline)
+                    Text("Scripts are autosaved as JSON in your Application Support directory.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("~/Library/Application Support/Rebilium/scripts.json")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .textSelection(.enabled)
+                    Text("\(library.scripts.count) saved scripts")
+                        .font(.caption)
+                        .foregroundStyle(RebiliumStyle.blue)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
+
+                Text("ScriptBlox imports source for review only. Scripts are not executed until you choose to run them. Roblox-specific APIs are not available in the standalone Luau runner.")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.58))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
-
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Local script storage", systemImage: "externaldrive")
-                    .font(.headline)
-                Text("Scripts are autosaved as JSON in your Application Support directory.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("~/Library/Application Support/Rebilium/scripts.json")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .textSelection(.enabled)
-                Text("\(library.scripts.count) saved scripts")
-                    .font(.caption)
-                    .foregroundStyle(RebiliumStyle.blue)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
-
-            Text("ScriptBlox browsing imports source for review only. Nothing executes until you press Run Script. The standalone Luau runtime cannot access Roblox APIs.")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.58))
-
-            Spacer()
+            .padding(25)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(25)
+        .scrollIndicators(.automatic)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var sidebar: some View {
