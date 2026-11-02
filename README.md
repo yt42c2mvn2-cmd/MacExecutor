@@ -4,6 +4,26 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.5 — launch verification for the actual copied Player
+
+Rebilium's **Settings → Roblox Player Runtime Lab** now offers **Launch
+Unmodified Working Copy** after a signed Player workspace is prepared. It
+rechecks the original and copied executable hashes, re-verifies code signing,
+then asks macOS LaunchServices to start a new instance **from that copied
+bundle**. The launcher disables running-application substitution and verifies
+that the application URL returned by macOS matches the workspace rather than
+the original installation. It shows the launched PID and records `launched:
+true` in the **external** JSON manifest only after macOS reports that exact
+copy.
+
+This is a *real Player app launch*, but it is **not a modified runtime,
+injection, or a Luau executor**. Roblox may update itself or require a
+website-initiated session; a PID alone doesn't prove game login or that a
+script could run. Nothing modifies Roblox.app, code signing, entitlements or
+runtime protections. Test this without using an account you cannot risk.
+
+See [working-copy method and launch guide](Experiments/RobloxPlayerInspection/RUNTIME_WORKSPACE.md).
+
 ## v1.4 — real Roblox Player runtime workspace
 
 Rebilium now has a **Roblox Player Runtime Lab** in Settings. It uses your
