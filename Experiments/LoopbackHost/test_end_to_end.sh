@@ -21,20 +21,24 @@ swiftc \
   "$ROOT/Experiments/LoopbackHost/main.swift" \
   -o "$TEMP/RebiliumLoopbackProbe"
 
-python3 "$ROOT/Experiments/LoopbackHost/host.py" \
+python3 -u "$ROOT/Experiments/LoopbackHost/host.py" \
   --port 0 --http-port 0 \
   --port-file "$TEMP/port" \
   --http-port-file "$TEMP/http-port" \
   --token-file "$TEMP/token" > "$TEMP/host.log" 2>&1 &
 HOST_PID=$!
 
-for attempt in $(seq 1 50); do
+# Runner startup and secure token generation can be slow on fresh macOS VMs.
+# Use a wall-clock deadline rather than 50 short polling attempts.
+DEADLINE=$((SECONDS + 120))
+while [ "$SECONDS" -lt "$DEADLINE" ]; do
   if [ -s "$TEMP/port" ] && [ -s "$TEMP/http-port" ] && [ -s "$TEMP/token" ]; then break; fi
   if ! kill -0 "$HOST_PID" 2>/dev/null; then
     cat "$TEMP/host.log"
+    echo "Host exited before startup"
     exit 1
   fi
-  sleep 0.1
+  sleep 0.2
 done
 
 if [ ! -s "$TEMP/token" ]; then
