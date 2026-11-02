@@ -20,7 +20,11 @@ private enum RebiliumPage: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @StateObject private var library = ScriptLibrary()
     @State private var currentPage: RebiliumPage = .scripts
-    @Namespace private var navigationHighlight
+    // Track the capsule continuously while the pointer is held down.
+    @State private var navigationDragOffset: CGFloat?
+    @State private var navigationGrabOffset: CGFloat?
+    private let navigationSegmentWidth: CGFloat = 132
+    private let navigationPadding: CGFloat = 5
     @AppStorage("luauExecutablePath") private var executablePath = ""
 
     @State private var searchText = ""
@@ -74,6 +78,9 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(18)
+            // Leave the native close/minimize/zoom controls unobstructed
+            // while the background extends seamlessly behind them.
+            .padding(.top, 28)
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 930, minHeight: 630)
@@ -86,6 +93,14 @@ struct ContentView: View {
         } message: {
             Text("Choose a name for this script.")
         }
+    }
+
+    private var selectedNavigationIndex: Int {
+        RebiliumPage.allCases.firstIndex(of: currentPage) ?? 0
+    }
+
+    private var navigationOffset: CGFloat {
+        navigationDragOffset ?? CGFloat(selectedNavigationIndex) * navigationSegmentWidth
     }
 
     private var primaryNavigation: some View {
@@ -103,47 +118,100 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // One moving selection capsule. matchedGeometryEffect interpolates
-            // its position and width as the user switches destinations.
-            HStack(spacing: 5) {
-                ForEach(RebiliumPage.allCases) { page in
-                    let active = currentPage == page
-                    Button {
-                        withAnimation(.spring(response: 0.37, dampingFraction: 0.79)) {
-                            currentPage = page
-                        }
-                    } label: {
-                        Label(page.rawValue, systemImage: page.symbol)
-                            .font(.system(size: 13, weight: active ? .semibold : .medium))
-                            .foregroundStyle(active ? .white : .white.opacity(0.75))
-                            .padding(.horizontal, 19)
-                            .frame(height: 39)
-                            .background {
-                                if active {
-                                    Capsule()
-                                        .fill(RebiliumStyle.gradient)
-                                        .overlay {
-                                            Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 1)
-                                        }
-                                        .shadow(
-                                            color: RebiliumStyle.violet.opacity(0.35),
-                                            radius: 10,
-                                            y: 3
-                                        )
-                                        .matchedGeometryEffect(
-                                            id: "selectedNavigationPill",
-                                            in: navigationHighlight
-                                        )
-                                }
-                            }
-                            .contentShape(Capsule())
+            // The selected capsule is one real draggable object rather than
+            // three separate backgrounds that happen to animate between tabs.
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.025))
+
+                Capsule()
+                    .fill(RebiliumStyle.gradient.opacity(0.33))
+                    .glassEffect(
+                        .regular.tint(RebiliumStyle.violet.opacity(0.18)).interactive(),
+                        in: Capsule()
+                    )
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(.white.opacity(0.32), lineWidth: 1)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("navigation-\(page.rawValue)")
+                    .shadow(
+                        color: RebiliumStyle.violet.opacity(0.29),
+                        radius: 9,
+                        y: 3
+                    )
+                    .frame(width: navigationSegmentWidth, height: 39)
+                    .offset(x: navigationPadding + navigationOffset)
+                    .allowsHitTesting(false)
+
+                HStack(spacing: 0) {
+                    ForEach(RebiliumPage.allCases) { page in
+                        let active = currentPage == page
+
+                        Button {
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                                currentPage = page
+                                navigationDragOffset = nil
+                                navigationGrabOffset = nil
+                            }
+                        } label: {
+                            Label(page.rawValue, systemImage: page.symbol)
+                                .font(.system(size: 13, weight: active ? .semibold : .medium))
+                                .foregroundStyle(active ? .white : .white.opacity(0.75))
+                                .frame(width: navigationSegmentWidth, height: 39)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("navigation-\(page.rawValue)")
+                    }
                 }
+                .padding(navigationPadding)
             }
-            .padding(5)
+            .frame(
+                width: navigationPadding * 2
+                    + navigationSegmentWidth * CGFloat(RebiliumPage.allCases.count),
+                height: 49
+            )
             .glassEffect(.regular, in: Capsule())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { value in
+                        // Save the initial grab position so the pill does not
+                        // jump when someone drags it from an edge.
+                        if navigationGrabOffset == nil {
+                            let center = navigationPadding
+                                + (CGFloat(selectedNavigationIndex) + 0.5)
+                                * navigationSegmentWidth
+                            navigationGrabOffset = value.startLocation.x - center
+                        }
+
+                        let pointerCenter = value.location.x - (navigationGrabOffset ?? 0)
+                        let proposedOffset = pointerCenter
+                            - navigationPadding - navigationSegmentWidth / 2
+                        let maximumOffset = navigationSegmentWidth
+                            * CGFloat(RebiliumPage.allCases.count - 1)
+
+                        // No animation during the drag: follow the pointer.
+                        navigationDragOffset = min(max(proposedOffset, 0), maximumOffset)
+                    }
+                    .onEnded { _ in
+                        let index = Int(
+                            (navigationOffset / navigationSegmentWidth).rounded()
+                        )
+                        let snapped = min(
+                            max(index, 0),
+                            RebiliumPage.allCases.count - 1
+                        )
+
+                        // The glass capsule springs to the nearest destination
+                        // and the page only changes when it is released.
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.76)) {
+                            currentPage = RebiliumPage.allCases[snapped]
+                            navigationDragOffset = nil
+                            navigationGrabOffset = nil
+                        }
+                    }
+            )
+            .accessibilityHint("Click a page or drag the highlighted glass tab horizontally to switch pages.")
 
             HStack(spacing: 6) {
                 Circle()
