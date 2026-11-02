@@ -10,6 +10,9 @@ struct RebiliumApp: App {
                     RebiliumDockIcon.install()
                 }
         }
+        // Draw the app background under the native macOS titlebar.
+        // Traffic-light window controls remain system-provided.
+        .windowStyle(.hiddenTitleBar)
     }
 }
 
