@@ -65,7 +65,7 @@ struct MacExecutorTests {
 
         #expect(snapshot.presence == .notFound)
         #expect(snapshot.applicationURL == nil)
-        #expect(snapshot.connectionAssessment.contains("not"))
+        #expect(snapshot.connectionAssessment.contains("Unknown"))
     }
 
     @Test @MainActor
