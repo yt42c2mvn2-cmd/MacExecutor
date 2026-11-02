@@ -122,6 +122,20 @@ final class ScriptLibrary: ObservableObject {
         save()
     }
 
+    /// Import a reviewed remote script without running it.
+    @discardableResult
+    func importScript(title: String, source: String) -> UUID {
+        let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let imported = SavedScript(
+            title: cleaned.isEmpty ? "Imported Script" : cleaned,
+            source: source
+        )
+        scripts.insert(imported, at: 0)
+        select(imported.id)
+        save()
+        return imported.id
+    }
+
     func duplicate(_ id: UUID) {
         guard let original = scripts.first(where: { $0.id == id }) else { return }
         let copy = SavedScript(title: original.title + " Copy", source: original.source)
