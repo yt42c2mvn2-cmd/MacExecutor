@@ -4,6 +4,12 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v0.9 — deeper graphite, brighter icon gradients
+
+Rebilium's **Dark** icon now has a near-black graphite/slate gradient closer to standard dark macOS icons, rather than a medium gray. The R stays legible with a bright silver-white gradient, while the square fitted into it uses stronger violet-to-blue saturation and a dark recessed socket. The **Light** variant has a richer purple-blue background and a more saturated inset square too. Both are generated from the same vector geometry, so the Dock and header logo stay consistent.
+
+The icon preference remains **Settings → App icon appearance** (Automatic / Light / Dark). macOS may cache a previous Dock image: stop Rebilium, use **Product → Clean Build Folder** in Xcode, and run again if the previous colors persist.
+
 ## v0.8 — selectable Roblox installation and gradient icon variants
 
 - Purple-to-blue gradient for primary actions
