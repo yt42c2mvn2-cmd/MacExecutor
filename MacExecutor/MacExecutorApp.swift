@@ -23,14 +23,28 @@ struct RebiliumApp: App {
 @MainActor
 enum RebiliumDockIcon {
     static func install() {
-        guard let iconURL = Bundle.main.url(
-            forResource: "AppIcon",
-            withExtension: "icns"
-        ), let icon = NSImage(contentsOf: iconURL) else {
-            // Do not override the system icon with a blank image.
+        let preference = UserDefaults.standard.string(
+            forKey: RebiliumIconTheme.preferenceKey
+        ) ?? "automatic"
+
+        // A full-resolution dark graphite image is shipped in Assets.car.
+        // The default macOS .icns supplies multiple optimized light sizes.
+        if RebiliumIconTheme.isDark(preference),
+           let darkImage = NSImage(named: NSImage.Name("RebiliumDarkIcon")) {
+            NSApplication.shared.applicationIconImage = darkImage
             return
         }
 
-        NSApplication.shared.applicationIconImage = icon
+        if let iconURL = Bundle.main.url(
+            forResource: "AppIcon", withExtension: "icns"
+        ), let lightImage = NSImage(contentsOf: iconURL) {
+            NSApplication.shared.applicationIconImage = lightImage
+            return
+        }
+
+        // Fallback for build environments that package only the image set.
+        if let lightImage = NSImage(named: NSImage.Name("RebiliumLightIcon")) {
+            NSApplication.shared.applicationIconImage = lightImage
+        }
     }
 }
