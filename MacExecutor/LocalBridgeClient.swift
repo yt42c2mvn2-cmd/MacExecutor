@@ -39,13 +39,38 @@ enum LocalBridgeClient {
     /// The port can be injected by the separate CI probe to avoid port conflicts;
     /// the Rebilium UI always uses the constant defaultPort.
     static func ping(port: UInt16 = defaultPort) throws -> BridgeTestResult {
-        let ping = BridgeEnvelope(
+        let request = BridgeEnvelope(
             action: .ping,
             payload: BridgeWireProtocol.diagnosticMarker
         )
-        var request = try BridgeWireProtocol.encode(ping)
+        let (requestBytes, response) = try exchange(request, port: port)
+        try BridgeWireProtocol.validateReply(response, to: request)
+        return BridgeTestResult(
+            requestID: request.requestID,
+            requestBytes: requestBytes,
+            responseBytes: response.count,
+            completedAt: .now
+        )
+    }
+
+    /// Reports a recent authenticated Studio plugin heartbeat, not Roblox
+    /// Player compatibility or script execution.
+    static func studioIsConnected(port: UInt16 = defaultPort) throws -> Bool {
+        let request = BridgeEnvelope(
+            action: .status,
+            payload: BridgeWireProtocol.studioStatusMarker
+        )
+        let (_, response) = try exchange(request, port: port)
+        return try BridgeWireProtocol.validateStudioStatus(response, to: request)
+    }
+
+    private static func exchange(
+        _ envelope: BridgeEnvelope,
+        port: UInt16
+    ) throws -> (Int, Data) {
+        var request = try BridgeWireProtocol.encode(envelope)
         let messageLength = request.count
-        request.append(0x0A) // newline-delimited JSON, one request per connection
+        request.append(0x0A)
 
         let socketFD = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard socketFD >= 0 else {
@@ -117,13 +142,7 @@ enum LocalBridgeClient {
                 throw ConnectionError.receiveFailure(errno)
             }
             if byte == 0x0A {
-                try BridgeWireProtocol.validateReply(reply, to: ping)
-                return BridgeTestResult(
-                    requestID: ping.requestID,
-                    requestBytes: messageLength,
-                    responseBytes: reply.count,
-                    completedAt: .now
-                )
+                return (messageLength, reply)
             }
             reply.append(byte)
         }

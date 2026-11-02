@@ -4,6 +4,44 @@ import Testing
 
 struct MacExecutorTests {
     @Test
+    func studioStatusAcceptsOnlyVersionedCorrelatedReplies() throws {
+        let request = BridgeEnvelope(
+            action: .status,
+            payload: BridgeWireProtocol.studioStatusMarker
+        )
+
+        let online = try BridgeWireProtocol.encode(BridgeEnvelope(
+            requestID: request.requestID,
+            action: .status,
+            payload: BridgeWireProtocol.studioConnectedMarker
+        ))
+        let offline = try BridgeWireProtocol.encode(BridgeEnvelope(
+            requestID: request.requestID,
+            action: .status,
+            payload: BridgeWireProtocol.studioDisconnectedMarker
+        ))
+        #expect(try BridgeWireProtocol.validateStudioStatus(online, to: request))
+        #expect(try !BridgeWireProtocol.validateStudioStatus(offline, to: request))
+
+        let unrelated = try BridgeWireProtocol.encode(BridgeEnvelope(
+            action: .status,
+            payload: BridgeWireProtocol.studioConnectedMarker
+        ))
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.validateStudioStatus(unrelated, to: request)
+        }
+
+        let wrongPayload = try BridgeWireProtocol.encode(BridgeEnvelope(
+            requestID: request.requestID,
+            action: .status,
+            payload: "execute"
+        ))
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.validateStudioStatus(wrongPayload, to: request)
+        }
+    }
+
+    @Test
     func backendPingPongCompletesWithoutAnyNetwork() throws {
         let result = try BridgeWireProtocol.selfTest()
         #expect(result.requestBytes > 0)

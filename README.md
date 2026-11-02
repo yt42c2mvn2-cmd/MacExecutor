@@ -4,6 +4,30 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.2 — first permission-based Roblox Studio handshake
+
+Rebilium now includes a **local Roblox Studio plugin**, installed only by the
+user in their own Studio development environment. The separate Python backend
+provides an HTTP endpoint on **127.0.0.1:37828**. Each time the host starts it
+generates and prints a short-lived pairing token in Terminal.
+
+After the user enters that token in the Studio plugin, Studio sends an
+authenticated heartbeat over localhost every 10 seconds. Heartbeats expire
+after 30 seconds. Rebilium queries the existing TCP diagnostic backend and
+shows whether a recent paired Studio heartbeat was received at
+**Settings → Native backend lab → Check Roblox Studio Connection**.
+
+See the [Roblox Studio plugin setup](Experiments/RobloxStudioPlugin/README.md).
+Existing ping diagnostics on TCP 127.0.0.1:37827 remain available.
+macOS CI now verifies an end-to-end HTTP-to-TCP status roundtrip using the
+same Swift networking client used in Rebilium.
+
+**Important:** Studio integration is an opt-in authorized plugin using the
+documented HttpService localhost feature. It is not Roblox Player injection,
+nor does it receive, import, or execute user scripts. The handshake only
+reports connection status. Script import will be a separate review/approval
+feature.
+
 ## v1.1 — first real local interprocess connection
 
 Rebilium now has a real **TCP ping/pong exchange** between the SwiftUI app and
