@@ -11,13 +11,13 @@ enum IconAppearance: String, CaseIterable {
         switch self {
         case .light:
             return [
-                NSColor(calibratedRed: 0.98, green: 0.98, blue: 1, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.76, green: 0.81, blue: 1, alpha: 1).cgColor
+                NSColor(calibratedRed: 1.00, green: 0.99, blue: 1.00, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.84, green: 0.89, blue: 1.00, alpha: 1).cgColor
             ]
         case .dark:
             return [
-                NSColor(calibratedRed: 0.99, green: 0.99, blue: 1, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.78, green: 0.82, blue: 0.98, alpha: 1).cgColor
+                NSColor(calibratedRed: 1.00, green: 1.00, blue: 1.00, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.85, green: 0.92, blue: 1.00, alpha: 1).cgColor
             ]
         }
     }
@@ -26,23 +26,23 @@ enum IconAppearance: String, CaseIterable {
         switch self {
         case .light:
             return [
-                NSColor(calibratedRed: 0.70, green: 0.40, blue: 1.00, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.32, green: 0.33, blue: 0.98, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.27, green: 0.67, blue: 0.98, alpha: 1).cgColor
+                NSColor(calibratedRed: 0.62, green: 0.20, blue: 0.98, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.23, green: 0.19, blue: 0.88, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.08, green: 0.53, blue: 1.00, alpha: 1).cgColor
             ]
         case .dark:
             return [
-                NSColor(calibratedRed: 0.38, green: 0.39, blue: 0.45, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.18, green: 0.19, blue: 0.25, alpha: 1).cgColor,
-                NSColor(calibratedRed: 0.28, green: 0.31, blue: 0.39, alpha: 1).cgColor
+                NSColor(calibratedRed: 0.19, green: 0.20, blue: 0.24, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.055, green: 0.062, blue: 0.085, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.095, green: 0.12, blue: 0.17, alpha: 1).cgColor
             ]
         }
     }
 
     var accent: NSColor {
         switch self {
-        case .light: NSColor(calibratedRed: 0.38, green: 0.68, blue: 1, alpha: 1)
-        case .dark: NSColor(calibratedRed: 0.47, green: 0.49, blue: 0.73, alpha: 1)
+        case .light: NSColor(calibratedRed: 0.10, green: 0.70, blue: 1.00, alpha: 1)
+        case .dark: NSColor(calibratedRed: 0.34, green: 0.30, blue: 1.00, alpha: 1)
         }
     }
 }
@@ -69,7 +69,8 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     let bgEnd = CGPoint(x: 975, y: 70)
     context.drawLinearGradient(bg, start: bgStart, end: bgEnd, options: [])
 
-    // Soft accent lighting. The graphite variant remains predominantly gray.
+    // Vibrant but localized purple-blue light; deep graphite remains the
+    // dominant tone in the dark icon rather than becoming pastel gray.
     let wave = CGMutablePath()
     wave.move(to: CGPoint(x: 60, y: 330))
     wave.addCurve(to: CGPoint(x: 980, y: 150),
@@ -80,7 +81,7 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     wave.closeSubpath()
     context.addPath(wave)
     context.setFillColor(appearance.accent.withAlphaComponent(
-        appearance == .light ? 0.37 : 0.18
+        appearance == .light ? 0.47 : 0.35
     ).cgColor)
     context.fillPath()
 
@@ -93,13 +94,13 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     upperGlow.closeSubpath()
     context.addPath(upperGlow)
     context.setFillColor(NSColor.white.withAlphaComponent(
-        appearance == .light ? 0.15 : 0.08
+        appearance == .light ? 0.10 : 0.025
     ).cgColor)
     context.fillPath()
 
     context.addPath(rounded)
     context.setStrokeColor(NSColor.white.withAlphaComponent(
-        appearance == .light ? 0.54 : 0.21
+        appearance == .light ? 0.47 : 0.15
     ).cgColor)
     context.setLineWidth(17)
     context.strokePath()
@@ -136,6 +137,7 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
                                options: [])
     context.restoreGState()
 
+    // A dark recessed socket boosts contrast against the vivid inset tile.
     // A squared socket cuts across the R's bowl and diagonal so the insert
     // has an intentional home, instead of appearing to float on top.
     let squareRect = CGRect(x: 466, y: 401, width: 237, height: 237)
@@ -152,8 +154,8 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     context.addPath(socket)
     context.setFillColor(
         (appearance == .dark
-            ? NSColor(calibratedRed: 0.23, green: 0.25, blue: 0.32, alpha: 1)
-            : NSColor(calibratedRed: 0.35, green: 0.36, blue: 0.89, alpha: 1)).cgColor
+            ? NSColor(calibratedRed: 0.075, green: 0.09, blue: 0.15, alpha: 1)
+            : NSColor(calibratedRed: 0.18, green: 0.15, blue: 0.62, alpha: 1)).cgColor
     )
     context.fillPath()
 
@@ -164,10 +166,15 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     context.addPath(square)
     context.clip()
     context.drawLinearGradient(
-        gradient([
-            NSColor(calibratedRed: 0.94, green: 0.89, blue: 1, alpha: 1).cgColor,
-            NSColor(calibratedRed: 0.59, green: 0.57, blue: 1, alpha: 1).cgColor
-        ]),
+        gradient(appearance == .light
+            ? [
+                NSColor(calibratedRed: 0.82, green: 0.36, blue: 1.00, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.16, green: 0.42, blue: 1.00, alpha: 1).cgColor
+            ]
+            : [
+                NSColor(calibratedRed: 0.68, green: 0.28, blue: 0.99, alpha: 1).cgColor,
+                NSColor(calibratedRed: 0.14, green: 0.44, blue: 1.00, alpha: 1).cgColor
+            ]),
         start: CGPoint(x: 468, y: 690),
         end: CGPoint(x: 735, y: 386),
         options: []
@@ -175,7 +182,7 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     context.restoreGState()
 
     context.addPath(square)
-    context.setStrokeColor(NSColor.white.withAlphaComponent(0.68).cgColor)
+    context.setStrokeColor(NSColor.white.withAlphaComponent(0.56).cgColor)
     context.setLineWidth(9)
     context.strokePath()
 
@@ -187,12 +194,12 @@ func drawIcon(_ context: CGContext, appearance: IconAppearance) {
     context.addPath(insetSquare)
     context.setFillColor(
         appearance == .dark
-            ? NSColor(calibratedRed: 0.27, green: 0.30, blue: 0.42, alpha: 1).cgColor
-            : NSColor(calibratedRed: 0.36, green: 0.38, blue: 0.88, alpha: 1).cgColor
+            ? NSColor(calibratedRed: 0.10, green: 0.18, blue: 0.53, alpha: 1).cgColor
+            : NSColor(calibratedRed: 0.12, green: 0.24, blue: 0.79, alpha: 1).cgColor
     )
     context.fillPath()
     context.addPath(insetSquare)
-    context.setStrokeColor(NSColor.white.withAlphaComponent(0.48).cgColor)
+    context.setStrokeColor(NSColor.white.withAlphaComponent(0.63).cgColor)
     context.setLineWidth(6)
     context.strokePath()
 }
