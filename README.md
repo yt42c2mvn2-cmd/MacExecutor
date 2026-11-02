@@ -4,13 +4,13 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-## v0.4 features
+## v0.5 fixes and features
 
 - Purple-to-blue gradient for primary actions
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
-- **Spring-animated sliding navigation pill** for Scripts, Discover, and Settings
-- New Rebilium R/glass app icon generated into the macOS AppIcon asset catalog during builds
+- **Directly draggable Liquid Glass navigation pill** for Scripts, Discover, and Settings; drag to move the highlight and release to spring-snap to the nearest page (clicking works too)
+- Rebilium R/glass Dock icon generated into the macOS asset catalog during builds, declared in Info.plist, and explicitly applied to the running Dock tile
 - Individual document tabs remain within the Scripts page
 - Script sidebar with search, new, rename, duplicate and delete
 - ScriptBlox trending and search using the public ScriptBlox API, script source preview, and manual import into the local library
@@ -43,3 +43,7 @@ The Discover panel uses ScriptBlox's documented `/api/script/trending`, `/api/sc
 ## Design implementation
 
 Rebilium's centered segmented navigation uses SwiftUI `matchedGeometryEffect` for one moving purple-blue selection capsule. To produce the macOS Dock icon, the Xcode target runs `Scripts/GenerateRebiliumIcon.swift` as a pre-build step and generates the PNGs listed in `AppIcon.appiconset/Contents.json`. The vector mark is a rendered implementation of the Rebilium sketch and glass-gradient design. Generated PNGs appear in the source asset catalog after a build and are not checked into Git.
+
+## Dock icon troubleshooting
+
+The runtime loads the compiled `AppIcon.icns` and applies it to the running Dock tile. The CI build also verifies that `MacExecutor.app/Contents/Resources/AppIcon.icns` is nonempty. If the old icon persists after you merge and pull this release, stop the app, choose **Product → Clean Build Folder** in Xcode (hold Option to reveal it if needed), and run again. A stale debug-app icon can survive previous builds because macOS caches application icons. Avoid resetting Dock preferences or deleting unrelated user data.
