@@ -7,6 +7,9 @@ struct RobloxRuntimeLabView: View {
 
     @State private var isPreparing = false
     @State private var confirmationVisible = false
+    @State private var launchConfirmationVisible = false
+    @State private var isLaunching = false
+    @State private var launchStatus = "Working copy has not been launched."
     @State private var currentManifest: RobloxRuntimeMethod.Manifest?
     @State private var status = "No isolated Player workspace prepared."
 
@@ -31,7 +34,7 @@ struct RobloxRuntimeLabView: View {
                 .foregroundStyle(.white.opacity(0.72))
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("The first workspace is intentionally unmodified and is not launched. Code signing and Roblox integrity checks remain in effect; this does not enable injection or make third-party libraries loadable.")
+            Text("The working copy is unmodified and still subject to macOS and Roblox integrity checks. You can now attempt to launch it normally, but no injection or custom runtime is installed.")
                 .font(.system(size: 11))
                 .foregroundStyle(.orange.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
@@ -93,6 +96,39 @@ struct RobloxRuntimeLabView: View {
                         Label("Reveal Working Copy", systemImage: "folder")
                     }
                     .buttonStyle(.glass)
+                    Divider().opacity(0.25)
+
+                    Button {
+                        launchConfirmationVisible = true
+                    } label: {
+                        Label("Launch Unmodified Working Copy", systemImage: "play.rectangle")
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isLaunching || isPreparing)
+                    .accessibilityIdentifier("launchRealPlayerWorkingCopyButton")
+                    .confirmationDialog(
+                        "Open the copied, unmodified Roblox Player?",
+                        isPresented: $launchConfirmationVisible
+                    ) {
+                        Button("Attempt Normal Player Launch") {
+                            launchCopy()
+                        }
+                    } message: {
+                        Text("This starts the real Roblox Player. It may contact Roblox services, update itself, or request login. Rebilium does not inject code, change signatures, or disable anti-cheat.")
+                    }
+
+                    if isLaunching {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Text(launchStatus)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("realPlayerLaunchStatus")
+
                 }
                 .padding(12)
                 .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
@@ -101,6 +137,27 @@ struct RobloxRuntimeLabView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
+    }
+
+    private func launchCopy() {
+        guard let manifest = currentManifest else {
+            launchStatus = "Prepare a verified Player working copy first."
+            return
+        }
+        isLaunching = true
+        launchStatus = "Rechecking signatures and hashes, then requesting a fresh launch…"
+        Task {
+            do {
+                let report = try await RobloxRuntimeLauncher.openPristineWorkingCopy(
+                    manifest: manifest
+                )
+                currentManifest = report.manifest
+                launchStatus = "macOS returned PID \(report.processID) for the exact working-copy bundle. This confirms launch identity, not gameplay, login, or script execution."
+            } catch {
+                launchStatus = "Launch not verified — \(error.localizedDescription)"
+            }
+            isLaunching = false
+        }
     }
 
     private func prepare() {
@@ -116,7 +173,8 @@ struct RobloxRuntimeLabView: View {
                     try RobloxRuntimeMethod.prepare(source: original)
                 }.value
                 currentManifest = manifest
-                status = "Working copy prepared and verified. Not modified or launched."
+                launchStatus = "Working copy has not been launched."
+                status = "Working copy prepared and verified. No changes to Player."
             } catch {
                 status = "Cannot prepare working copy: \(error.localizedDescription)"
             }
