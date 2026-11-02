@@ -78,6 +78,9 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(18)
+            // Leave the native close/minimize/zoom controls unobstructed
+            // while the background extends seamlessly behind them.
+            .padding(.top, 28)
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 930, minHeight: 630)
