@@ -1,27 +1,31 @@
-# MacExecutor
+# Rebilium
 
-An experimental native macOS SwiftUI app for running **local Luau scripts**.
+Rebilium is a native macOS **Luau editor and local script runner**, built with SwiftUI.
 
-## First prototype
+The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-- Script editor and clear button
-- Execute using the separately compiled Luau command-line interpreter
-- Console output and error messages
-- Choose the Luau executable via a file picker (path saved locally)
-- 10-second execution timeout
-- Intel macOS support (matching the locally compiled CLI)
+## v0.2 features
 
-## Run
+- Purple-to-blue gradient for primary actions
+- Modern geometric **R** logo in the sidebar
+- Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
+- **Top tabs** for multiple open scripts
+- Script sidebar with search, new, rename, duplicate and delete
+- Local autosave to \`~/Library/Application Support/Rebilium/scripts.json\`
+- Luau script editor, console and a 10-second run timeout
+- Swift Testing coverage for persistence and tab behavior
 
-1. Build the Luau CLI from https://github.com/luau-lang/luau:
-   `make config=release luau`
-2. Open `MacExecutor.xcodeproj` in Xcode.
-3. Build and run the **MacExecutor** target.
-4. If needed, click **Choose Luau…** and select `build/release/luau` from your Luau checkout.
-5. Edit the sample script and click **Execute**.
+## Running it
 
-The app uses your local Luau executable; it does **not** embed Luau or run scripts inside Roblox. Roblox services such as `game` and `workspace` are unavailable. This initial prototype disables App Sandbox to run a selected local executable: do not run untrusted scripts, and do not distribute it as a hardened/sandboxed release.
+1. Open \`MacExecutor.xcodeproj\` in Xcode 26 or newer.
+2. Choose the \`MacExecutor\` scheme and press **Cmd+R**.
+3. Click **Choose Luau** and select the \`luau\` executable you built from [the official Luau project](https://github.com/luau-lang/luau).
+4. Enter or edit your script, then click **Run Script**.
 
-## Development
+The executable path is remembered on your Mac. Script changes are saved automatically; closed tabs remain in the script library. Right-click a sidebar item to rename, duplicate or delete it.
 
-This branch is an unverified initial implementation. Build and test on macOS using Xcode. The current UI is intentionally simple; future work can add script storage and unit/UI tests.
+## Safety and scope
+
+**This is a local Luau script runner.** It does not attach to Roblox, inject into the Roblox client, or provide Roblox \`game\` / \`workspace\` APIs.
+
+The Xcode target currently disables App Sandbox to launch a separately built Luau CLI. Only execute scripts you trust, and do not treat the local interpreter as a sandbox for hostile code. A distributable app should bundle and sandbox its runtime before release.

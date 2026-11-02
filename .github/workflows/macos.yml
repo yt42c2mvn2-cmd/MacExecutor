@@ -1,0 +1,23 @@
+name: Rebilium macOS build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feature/rebilium-v02-liquid-glass
+
+jobs:
+  build-and-unit-test:
+    runs-on: macos-26-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run Swift Testing tests
+        run: |
+          xcodebuild \
+            -project MacExecutor.xcodeproj \
+            -scheme MacExecutor \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MacExecutorTests \
+            test
