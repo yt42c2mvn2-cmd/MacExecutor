@@ -4,11 +4,15 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-## v0.6 improvements
+## v0.7 — passive Roblox Client Check
 
 - Purple-to-blue gradient for primary actions
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
+- **Read-only Roblox Client Check** in Settings: reports Player running, Player installed but not running, or not found
+- Live status refresh on macOS app launch/quit notifications and a manual **Check Again** button
+- Only observes Launch Services/NSWorkspace and validated app bundles; no communication, probing, hooking or memory access
+- Explicit **Connection compatibility: Not tested** indicator so detection is never mistaken for a successful connection
 - **Press-to-expand glass capsule**: the selected pill gently grows and glows while dragging, then springs to normal size when released
 - **Uniform main page height**: Scripts, Discover, and Settings share one full-size outer glass panel
 - **Matching in-app brand icon**: the header displays the same compiled AppIcon artwork as the Dock, replacing the old placeholder R
@@ -30,7 +34,7 @@ The Xcode project and executable target are still named MacExecutor internally t
 3. Click **Choose Luau** and select the \`luau\` executable you built from [the official Luau project](https://github.com/luau-lang/luau).
 4. Use **Scripts** to edit and run local Luau code.
 5. Use **Discover** to search ScriptBlox, inspect the script source, and click **Import to Library**. Imported scripts open as local tabs; importing does not run them.
-6. Use **Settings** to review the Luau executable and the local script storage location.
+6. Use **Settings** to view **Roblox Client Check**, refresh the observed status, and review the Luau executable and local script storage location.
 
 The executable path is remembered on your Mac. Script changes are saved automatically; closed tabs remain in the script library. Right-click a sidebar item to rename, duplicate or delete it.
 
@@ -55,3 +59,12 @@ The runtime loads the compiled `AppIcon.icns` and applies it to the running Dock
 ## UI consistency (v0.6)
 
 The navigation capsule grows by 12 points in width and 6 points in height while held, remains centered under the pointer, and springs back on release. All three main pages share a common outer glass panel rather than each creating a separate page-sized background. The window header loads the compiled `AppIcon.icns` to match the Dock artwork, with a fallback only when running without bundled assets.
+
+
+## Roblox Client Check — observation only
+
+Open **Settings → Roblox Client Check** to see whether the macOS Roblox Player is running or installed. The header shows the last observed presence state; Settings displays the application path, bundle ID, and process ID when available.
+
+The check uses Apple's \`NSRunningApplication.runningApplications(withBundleIdentifier:)\`, \`NSWorkspace.urlForApplication(withBundleIdentifier:)\`, and local bundle metadata. It recognizes the Player identifier \`com.roblox.RobloxPlayer\`; Roblox Studio has a different identifier and does not count. It also examines Roblox's documented macOS application locations as a fallback. Status automatically refreshes on macOS app launch/quit and can be manually refreshed.
+
+**Connection readiness is unknown.** Detecting a running application does not show whether Roblox offers a usable/authorized API or that a connection would be possible. Rebilium does not send requests to Roblox, open a socket or port, attach to a process, read/write Roblox memory, run injection code, or alter the Roblox application. This release intentionally makes no attempt to establish communication.
