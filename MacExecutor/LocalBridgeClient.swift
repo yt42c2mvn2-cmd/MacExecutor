@@ -53,6 +53,14 @@ enum LocalBridgeClient {
         }
         defer { _ = Darwin.close(socketFD) }
 
+        // macOS normally delivers SIGPIPE when writing to a disconnected TCP
+        // peer. Never let a stopped or malfunctioning test host crash Rebilium.
+        var ignoreBrokenPipe: Int32 = 1
+        let optionSize = socklen_t(MemoryLayout<Int32>.size)
+        _ = Darwin.setsockopt(
+            socketFD, SOL_SOCKET, SO_NOSIGPIPE, &ignoreBrokenPipe, optionSize
+        )
+
         var timeout = timeval(tv_sec: timeoutSeconds, tv_usec: 0)
         let size = socklen_t(MemoryLayout<timeval>.size)
         _ = withUnsafePointer(to: &timeout) { pointer in
