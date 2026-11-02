@@ -38,6 +38,9 @@ struct ContentView: View {
     @State private var isCheckingLoopback = false
     @State private var studioConnectionStatus = "Not checked — pair Studio using the Terminal token."
     @State private var isCheckingStudio = false
+    @State private var studioSendToken = ""
+    @State private var isSendingToStudio = false
+    @State private var studioOfferStatus = "No script offered. Nothing will run automatically."
     @State private var isRenaming = false
     @State private var renameID: UUID?
     @State private var renameText = ""
@@ -460,6 +463,63 @@ struct ContentView: View {
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("studioConnectionStatus")
+
+                    Divider().opacity(0.25)
+
+                    Label("Send selected script for Studio preview", systemImage: "doc.text")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("Selected: \(library.selectedScript?.title ?? "None") · import is opt-in, never automatic.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.70))
+
+                    SecureField("Paste the same Terminal pairing token here", text: $studioSendToken)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 380)
+                        .accessibilityIdentifier("studioSendTokenField")
+
+                    Button {
+                        guard let selected = library.selectedScript else {
+                            studioOfferStatus = "Select a script in the Scripts tab first."
+                            return
+                        }
+                        let title = selected.title
+                        let source = selected.source
+                        let token = studioSendToken
+                        isSendingToStudio = true
+                        studioOfferStatus = "Sending script text to the paired local host…"
+                        Task {
+                            do {
+                                _ = try await StudioScriptTransfer.submit(
+                                    title: title,
+                                    source: source,
+                                    pairingToken: token
+                                )
+                                studioOfferStatus =
+                                    "Offered to Studio — in its plugin, click Fetch script preview, inspect, then Approve import. Nothing has executed."
+                            } catch {
+                                studioOfferStatus = "Not offered — \(error.localizedDescription)"
+                            }
+                            isSendingToStudio = false
+                        }
+                    } label: {
+                        Label("Send Selected Script to Studio", systemImage: "paperplane")
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isSendingToStudio || library.selectedScript == nil)
+                    .accessibilityIdentifier("sendSelectedToStudioButton")
+
+                    Text(studioOfferStatus)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.73))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("studioOfferStatus")
+
+                    Text("Requires a paired Studio plugin. Up to 64 KiB of source is held in memory for 10 minutes. Studio imports only after you click Approve.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
