@@ -20,6 +20,7 @@ private enum RebiliumPage: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @StateObject private var library = ScriptLibrary()
     @StateObject private var robloxInspector = RobloxClientInspector()
+    @AppStorage(RebiliumIconTheme.preferenceKey) private var iconPreference = "automatic"
     @State private var currentPage: RebiliumPage = .scripts
     // Track the capsule continuously while the pointer is held down.
     @State private var navigationDragOffset: CGFloat?
@@ -86,6 +87,16 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 930, minHeight: 630)
+        .onChange(of: iconPreference) { _, _ in
+            RebiliumDockIcon.install()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            RebiliumDockIcon.install()
+        }
         .onAppear {
             robloxInspector.refresh()
         }
@@ -318,6 +329,35 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.6))
 
                 RobloxClientCheckView(inspector: robloxInspector)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        RebiliumMark(size: 52)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Label("App icon appearance", systemImage: "paintpalette")
+                                .font(.headline)
+                            Text("Choose the colorful icon or the graphite dark icon.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Picker("Icon", selection: $iconPreference) {
+                        Text("Automatic").tag("automatic")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 390)
+                    .accessibilityIdentifier("rebiliumIconAppearancePicker")
+
+                    Text("Automatic follows macOS appearance; changing the selection also updates the Dock icon.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
 
                 VStack(alignment: .leading, spacing: 13) {
                     Label("Luau interpreter", systemImage: "terminal")
