@@ -334,6 +334,7 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.6))
 
                 RobloxClientCheckView(inspector: robloxInspector)
+                RobloxRuntimeLabView(inspector: robloxInspector)
 
                 VStack(alignment: .leading, spacing: 11) {
                     Label("Native backend lab", systemImage: "cpu")
