@@ -54,6 +54,9 @@ enum BridgeWireProtocol {
     static let version = 1
     static let maxMessageBytes = 4_096
     static let diagnosticMarker = "rebilium-local-ping-v1"
+    static let studioStatusMarker = "rebilium-studio-status-v1"
+    static let studioConnectedMarker = "studio-connected"
+    static let studioDisconnectedMarker = "studio-not-connected"
 
     static func encode(_ envelope: BridgeEnvelope) throws -> Data {
         guard envelope.version == version else {
@@ -103,6 +106,24 @@ enum BridgeWireProtocol {
         }
         guard reply.payload == diagnosticMarker else {
             throw BridgeProtocolError.unexpectedPayload
+        }
+    }
+
+    static func validateStudioStatus(
+        _ bytes: Data,
+        to request: BridgeEnvelope
+    ) throws -> Bool {
+        let reply = try decode(bytes)
+        guard request.action == .status, reply.action == .status else {
+            throw BridgeProtocolError.unexpectedAction
+        }
+        guard reply.requestID == request.requestID else {
+            throw BridgeProtocolError.mismatchedRequest
+        }
+        switch reply.payload {
+        case studioConnectedMarker: return true
+        case studioDisconnectedMarker: return false
+        default: throw BridgeProtocolError.unexpectedPayload
         }
     }
 
