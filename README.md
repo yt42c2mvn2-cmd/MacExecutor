@@ -4,6 +4,24 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.4 — real Roblox Player runtime workspace
+
+Rebilium now has a **Roblox Player Runtime Lab** in Settings. It uses your
+actual installed, signed x86_64 Player rather than a simulated host.
+
+Select **Prepare Isolated Player Copy** to explicitly create a separate copy
+under `~/Library/Application Support/Rebilium/PlayerRuntimeWorkspaces/`.
+The method validates the source bundle's identity and architecture, verifies
+its original and copied signatures, hashes both executables with SHA-256,
+and stores an external JSON manifest with the results. Failed copies are
+removed; the installed Player is never changed.
+
+**Scope:** The copy is pristine and **not launched**. This is not a Roblox
+injector or a working modified client. The user's observed hardened-runtime
+entitlements don't include the disable-library-validation exception, so
+loading a Rebilium dylib cannot be assumed to work. For technical details,
+see the [runtime method documentation](Experiments/RobloxPlayerInspection/RUNTIME_WORKSPACE.md).
+
 ## v1.2 — first permission-based Roblox Studio handshake
 
 Rebilium now includes a **local Roblox Studio plugin**, installed only by the
