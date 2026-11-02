@@ -71,6 +71,65 @@ struct MacExecutorTests {
     }
 
     @Test
+    func runtimeLaunchPreflightVerifiesSourceCopyAndExternalManifest() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(
+            "rebilium-launch-test-" + UUID().uuidString, isDirectory: true
+        )
+        defer { try? manager.removeItem(at: root) }
+        let original = try createMockPlayer(at: root.appendingPathComponent("installed"))
+        let destinationRoot = root.appendingPathComponent("workspaces")
+        let manifest = try RobloxRuntimeMethod.prepare(
+            source: original,
+            workspaceRoot: destinationRoot,
+            verifySignature: { _ in }
+        )
+        try RobloxRuntimeMethod.verifyPristine(
+            manifest,
+            workspaceRoot: destinationRoot,
+            verifySignature: { _ in }
+        )
+        let recorded = try RobloxRuntimeMethod.recordSuccessfulLaunch(manifest)
+        #expect(recorded.launched)
+        #expect(!recorded.modified)
+        try RobloxRuntimeMethod.verifyPristine(
+            recorded,
+            workspaceRoot: destinationRoot,
+            verifySignature: { _ in }
+        )
+        let originalBinary = try RobloxRuntimeMethod.executable(at: original)
+        let originalBytes = try Data(contentsOf: originalBinary)
+        #expect(try Data(contentsOf: originalBinary) == originalBytes)
+
+        // Appending data preserves the Mach-O header but changes the hash.
+        let copied = try RobloxRuntimeMethod.executable(
+            at: URL(fileURLWithPath: manifest.workingBundlePath)
+        )
+        let handle = try FileHandle(forWritingTo: copied)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data([0x0A]))
+        try handle.close()
+        #expect(throws: RobloxRuntimeMethod.MethodError.self) {
+            try RobloxRuntimeMethod.verifyPristine(
+                recorded,
+                workspaceRoot: destinationRoot,
+                verifySignature: { _ in }
+            )
+        }
+        #expect(try Data(contentsOf: originalBinary) == originalBytes)
+    }
+
+    @Test
+    func runtimeLauncherDetectsSubstitutedOrUnknownBundle() {
+        let copied = URL(fileURLWithPath: "/tmp/Rebilium/Workspace-A/Roblox.app")
+        let installed = URL(fileURLWithPath: "/Applications/Roblox.app")
+
+        #expect(RobloxRuntimeLauncher.isRequestedWorkingCopy(copied, reported: copied))
+        #expect(!RobloxRuntimeLauncher.isRequestedWorkingCopy(copied, reported: installed))
+        #expect(!RobloxRuntimeLauncher.isRequestedWorkingCopy(copied, reported: nil))
+    }
+
+    @Test
     func runtimeMethodRejectsNonPlayerAndOtherArchitecture() throws {
         let manager = FileManager.default
         let root = manager.temporaryDirectory.appendingPathComponent(
