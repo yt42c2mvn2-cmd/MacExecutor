@@ -10,6 +10,7 @@ The Xcode project and executable target are still named MacExecutor internally t
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
 - **Directly draggable Liquid Glass navigation pill** for Scripts, Discover, and Settings; drag to move the highlight and release to spring-snap to the nearest page (clicking works too)
+- **Seamless native macOS titlebar** with the standard red/yellow/green window controls, and app background extending beneath the titlebar
 - Rebilium R/glass Dock icon generated into the macOS asset catalog during builds, declared in Info.plist, and explicitly applied to the running Dock tile
 - Individual document tabs remain within the Scripts page
 - Script sidebar with search, new, rename, duplicate and delete
