@@ -48,7 +48,7 @@ struct MacExecutorTests {
         )
 
         #expect(inspectedPaths.count == 2)
-        #expect(inspectedPaths[0] == source.path)
+        #expect(inspectedPaths[0] == source.standardizedFileURL.resolvingSymlinksInPath().path)
         #expect(inspectedPaths[1] == manifest.workingBundlePath)
         #expect(manifest.method == RobloxRuntimeMethod.methodID)
         #expect(manifest.schemaVersion == 1)
