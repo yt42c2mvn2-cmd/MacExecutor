@@ -4,12 +4,13 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-## v0.3 features
+## v0.4 features
 
 - Purple-to-blue gradient for primary actions
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
-- **Top navigation pill** for Scripts, Discover, and Settings
+- **Spring-animated sliding navigation pill** for Scripts, Discover, and Settings
+- New Rebilium R/glass app icon generated into the macOS AppIcon asset catalog during builds
 - Individual document tabs remain within the Scripts page
 - Script sidebar with search, new, rename, duplicate and delete
 - ScriptBlox trending and search using the public ScriptBlox API, script source preview, and manual import into the local library
@@ -38,3 +39,7 @@ The Xcode target currently disables App Sandbox to launch a separately built Lua
 ## ScriptBlox integration
 
 The Discover panel uses ScriptBlox's documented `/api/script/trending`, `/api/script/search`, and `/api/script/:script` endpoints. Attribution: [Powered by ScriptBlox.com](https://scriptblox.com). No user API key is required for these public endpoints. External scripts can be unsafe and may depend on Roblox-specific APIs which the local Luau runtime does not provide. Read source before running anything.
+
+## Design implementation
+
+Rebilium's centered segmented navigation uses SwiftUI `matchedGeometryEffect` for one moving purple-blue selection capsule. To produce the macOS Dock icon, the Xcode target runs `Scripts/GenerateRebiliumIcon.swift` as a pre-build step and generates the PNGs listed in `AppIcon.appiconset/Contents.json`. The vector mark is a rendered implementation of the Rebilium sketch and glass-gradient design. Generated PNGs appear in the source asset catalog after a build and are not checked into Git.
