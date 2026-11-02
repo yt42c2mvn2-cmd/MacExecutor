@@ -4,6 +4,48 @@ import Testing
 
 struct MacExecutorTests {
     @Test
+    func backendPingPongCompletesWithoutAnyNetwork() throws {
+        let result = try BridgeWireProtocol.selfTest()
+        #expect(result.requestBytes > 0)
+        #expect(result.responseBytes > 0)
+        #expect(result.requestID != UUID(uuidString: "00000000-0000-0000-0000-000000000000"))
+    }
+
+    @Test
+    func backendRejectsUnsupportedVersionsAndOversizeMessages() throws {
+        let wrongVersion = BridgeEnvelope(version: 77, action: .ping)
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.encode(wrongVersion)
+        }
+
+        let oversized = BridgeEnvelope(
+            action: .ping,
+            payload: String(repeating: "x", count: BridgeWireProtocol.maxMessageBytes)
+        )
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.encode(oversized)
+        }
+    }
+
+    @Test
+    func backendCorrelatesRepliesAndChecksActions() throws {
+        let request = BridgeEnvelope(action: .ping, payload: BridgeWireProtocol.diagnosticMarker)
+        let wrongAction = try BridgeWireProtocol.encode(
+            BridgeEnvelope(requestID: request.requestID, action: .status)
+        )
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.validateReply(wrongAction, to: request)
+        }
+
+        let wrongRequest = try BridgeWireProtocol.encode(
+            BridgeEnvelope(action: .pong, payload: BridgeWireProtocol.diagnosticMarker)
+        )
+        #expect(throws: BridgeProtocolError.self) {
+            try BridgeWireProtocol.validateReply(wrongRequest, to: request)
+        }
+    }
+
+    @Test
     func installationPickerAcceptsOnlyPlayerBundles() {
         let root = URL(fileURLWithPath: "/My Games/Roblox.app", isDirectory: true)
         let inner = root.appendingPathComponent("Contents/MacOS/Roblox.app", isDirectory: true)
