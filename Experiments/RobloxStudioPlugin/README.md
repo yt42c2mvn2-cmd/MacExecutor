@@ -1,8 +1,7 @@
 # Rebilium Roblox Studio plugin — opt-in handshake
 
 **Purpose:** prove that Roblox Studio can communicate with Rebilium's local
-backend using supported plugin HTTP APIs. **This does not inject into Roblox
-Player, import scripts, or execute Luau.**
+backend using supported plugin HTTP APIs. **This does not inject into Roblox Player or execute Luau.**
 
 ## Install and connect (first manual Studio test)
 
@@ -60,3 +59,29 @@ during pairing or import.
 - [Roblox HttpService: Studio plugins and localhost](https://create.roblox.com/docs/cloud-services/http-service)
 - [Roblox Studio plugins](https://create.roblox.com/docs/studio/plugins)
 - [Roblox ScriptEditorService](https://create.roblox.com/docs/reference/engine/classes/ScriptEditorService)
+
+
+## Review-only script transfer
+
+After pairing Studio and confirming its connection in Rebilium:
+
+1. Select a saved script in Rebilium's Scripts tab.
+2. Open Settings → Native backend lab, paste the **same** temporary token
+   into the secure Studio-send field, then select **Send Selected Script to Studio**.
+3. Open the installed Studio plugin. Click **Fetch script preview**. Inspect
+   its full source in the read-only preview box.
+4. Click **Approve: import inert ModuleScript** only if you trust the content.
+   This creates a ModuleScript in ServerStorage, where it is not automatically
+   executed. You can review or edit it further in Studio.
+
+No script is imported merely by sending or previewing it. The backend holds
+one offer in memory, with a maximum source size of 64 KiB and a ten-minute
+expiry; submitting a new offer replaces the previous one. An acknowledgement
+removes the offer after successful import. Restarting the host also clears
+it. Do not import untrusted code expecting it to be sandboxed.
+
+**Existing local plugin installations must be updated** with the revised
+plugin source for the new preview and approval buttons to appear.
+
+This feature does not attach to a regular Roblox Player, change a Roblox
+client, or silently run any Luau code.
