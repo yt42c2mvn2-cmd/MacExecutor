@@ -30,6 +30,8 @@ nonisolated enum RobloxRuntimeMethod {
         case signatureRejected(String)
         case contentChanged
         case duplicateWorkspace
+        case invalidWorkspaceManifest
+        case modifiedWorkingCopy
 
         var errorDescription: String? {
             switch self {
@@ -49,6 +51,10 @@ nonisolated enum RobloxRuntimeMethod {
                 "The copied Player executable differs from the original; the workspace was discarded."
             case .duplicateWorkspace:
                 "The proposed workspace is inside the source app or overlaps an existing workspace."
+            case .invalidWorkspaceManifest:
+                "The workspace manifest is missing, untrusted, or no longer matches this copy."
+            case .modifiedWorkingCopy:
+                "The copied Roblox executable no longer matches the verified baseline."
             }
         }
     }
@@ -159,6 +165,73 @@ nonisolated enum RobloxRuntimeMethod {
         try bytes.write(to: session.appendingPathComponent("manifest.json"), options: .atomic)
         complete = true
         return manifest
+    }
+
+    /// Verifies that the launched candidate still refers to the same signed,
+    /// pristine x86_64 Roblox bundle created by the Runtime Lab. The manifest
+    /// stays OUTSIDE the signed app. This is not a loading/injection bypass.
+    static func verifyPristine(
+        _ manifest: Manifest,
+        verifySignature: (URL) throws -> Void = verifyWithCodeSign
+    ) throws {
+        guard manifest.schemaVersion == 1,
+              manifest.method == methodID,
+              manifest.signingVerified,
+              !manifest.modified else {
+            throw MethodError.invalidWorkspaceManifest
+        }
+
+        let workspace = URL(fileURLWithPath: manifest.workingBundlePath, isDirectory: true)
+            .standardizedFileURL.resolvingSymlinksInPath()
+        let root = workspaceDirectory().standardizedFileURL.resolvingSymlinksInPath()
+        let session = workspace.deletingLastPathComponent()
+        guard workspace.lastPathComponent == "Roblox.app",
+              session.lastPathComponent.hasPrefix("Workspace-"),
+              session.deletingLastPathComponent() == root else {
+            throw MethodError.invalidWorkspaceManifest
+        }
+
+        let storedManifest = session.appendingPathComponent("manifest.json")
+        let bytes = try Data(contentsOf: storedManifest)
+        let stored = try JSONDecoder().decode(Manifest.self, from: bytes)
+        guard stored == manifest else {
+            throw MethodError.invalidWorkspaceManifest
+        }
+
+        let source = URL(fileURLWithPath: manifest.sourceBundlePath, isDirectory: true)
+            .standardizedFileURL.resolvingSymlinksInPath()
+        guard source != workspace else {
+            throw MethodError.invalidWorkspaceManifest
+        }
+        let originalExecutable = try executable(at: source)
+        let copiedExecutable = try executable(at: workspace)
+        guard try sha256(originalExecutable) == manifest.sourceExecutableSHA256,
+              sha256(copiedExecutable) == manifest.workingExecutableSHA256 else {
+            throw MethodError.modifiedWorkingCopy
+        }
+        try verifySignature(source)
+        try verifySignature(workspace)
+    }
+
+    /// Tracks launch without changing any file INSIDE Roblox.app.
+    static func recordSuccessfulLaunch(_ manifest: Manifest) throws -> Manifest {
+        let updated = Manifest(
+            schemaVersion: manifest.schemaVersion,
+            method: manifest.method,
+            sourceBundlePath: manifest.sourceBundlePath,
+            workingBundlePath: manifest.workingBundlePath,
+            sourceExecutableSHA256: manifest.sourceExecutableSHA256,
+            workingExecutableSHA256: manifest.workingExecutableSHA256,
+            preparedAt: manifest.preparedAt,
+            modified: false,
+            launched: true,
+            signingVerified: manifest.signingVerified
+        )
+        let workspace = URL(fileURLWithPath: manifest.workingBundlePath, isDirectory: true)
+        let manifestFile = workspace.deletingLastPathComponent()
+            .appendingPathComponent("manifest.json")
+        try JSONEncoder().encode(updated).write(to: manifestFile, options: .atomic)
+        return updated
     }
 
     private static func sha256(_ file: URL) throws -> String {
