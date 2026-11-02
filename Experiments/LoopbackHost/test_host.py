@@ -16,7 +16,7 @@ from host import (
 class LoopbackHostTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = LocalBridgeServer(("127.0.0.1", 0), BridgeHandler)
+        cls.server = LocalBridgeServer(("127.0.0.1", 0), BridgeHandler, studio_state=StudioSessionState(token="test-only-local-token"))
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
