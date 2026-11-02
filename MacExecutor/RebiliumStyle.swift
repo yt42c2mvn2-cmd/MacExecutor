@@ -30,31 +30,17 @@ struct RebiliumGradientButtonStyle: ButtonStyle {
     }
 }
 
-/// The in-app badge uses the same compiled AppIcon artwork as the Dock.
-/// No separate mock logo, so the two cannot drift out of sync.
+/// The in-app mark always uses the actual light/dark dock artwork.
 struct RebiliumMark: View {
     var size: CGFloat = 42
+    @AppStorage(RebiliumIconTheme.preferenceKey) private var iconPreference = "automatic"
 
     var body: some View {
-        Group {
-            if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
-               let icon = NSImage(contentsOf: iconURL) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-            } else {
-                // Only shown when the app is running without compiled icon assets.
-                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                    .fill(RebiliumStyle.gradient)
-                    .overlay {
-                        Text("R")
-                            .font(.system(size: size * 0.65, weight: .black))
-                            .foregroundStyle(.white)
-                    }
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityLabel("Rebilium logo")
+        Image(RebiliumIconTheme.imageAssetName(for: iconPreference))
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityLabel("Rebilium logo")
     }
 }
