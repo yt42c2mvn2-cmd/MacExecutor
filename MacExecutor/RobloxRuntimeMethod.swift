@@ -172,6 +172,7 @@ nonisolated enum RobloxRuntimeMethod {
     /// stays OUTSIDE the signed app. This is not a loading/injection bypass.
     static func verifyPristine(
         _ manifest: Manifest,
+        workspaceRoot rootURL: URL = workspaceDirectory(),
         verifySignature: (URL) throws -> Void = verifyWithCodeSign
     ) throws {
         guard manifest.schemaVersion == 1,
@@ -183,7 +184,7 @@ nonisolated enum RobloxRuntimeMethod {
 
         let workspace = URL(fileURLWithPath: manifest.workingBundlePath, isDirectory: true)
             .standardizedFileURL.resolvingSymlinksInPath()
-        let root = workspaceDirectory().standardizedFileURL.resolvingSymlinksInPath()
+        let root = rootURL.standardizedFileURL.resolvingSymlinksInPath()
         let session = workspace.deletingLastPathComponent()
         guard workspace.lastPathComponent == "Roblox.app",
               session.lastPathComponent.hasPrefix("Workspace-"),
@@ -206,7 +207,7 @@ nonisolated enum RobloxRuntimeMethod {
         let originalExecutable = try executable(at: source)
         let copiedExecutable = try executable(at: workspace)
         guard try sha256(originalExecutable) == manifest.sourceExecutableSHA256,
-              sha256(copiedExecutable) == manifest.workingExecutableSHA256 else {
+              try sha256(copiedExecutable) == manifest.workingExecutableSHA256 else {
             throw MethodError.modifiedWorkingCopy
         }
         try verifySignature(source)
