@@ -4,6 +4,24 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.0 prototype — native library and backend diagnostics
+
+Rebilium now includes an isolated macOS native-library loading experiment at
+[Experiments/InProcessHost](Experiments/InProcessHost/README.md).
+An executable **we own** explicitly loads \`librebilium_bridge.dylib\` at
+process launch and passes Luau source bytes to the library, which returns
+validation metadata **without running the script**. The macOS CI job compiles
+and tests this host, including invalid/oversized payloads.
+
+A separate versioned Swift bridge protocol provides an in-memory ping/pong
+roundtrip and strict version, reply, and size validation. Run the diagnostic
+from **Settings → Native backend lab → Run Backend Self-Test**.
+
+**Scope:** This is a proof of the app/native-library division seen in Delta's
+iOS IPA, **not** a Roblox Player attachment or executor. The publicly shipped
+macOS Roblox Player has not been modified, no port or anti-cheat bypass is
+attempted, and the diagnostic performs no Roblox or network communication.
+
 ## v0.9 — deeper graphite, brighter icon gradients
 
 Rebilium's **Dark** icon now has a near-black graphite/slate gradient closer to standard dark macOS icons, rather than a medium gray. The R stays legible with a bright silver-white gradient, while the square fitted into it uses stronger violet-to-blue saturation and a dark recessed socket. The **Light** variant has a richer purple-blue background and a more saturated inset square too. Both are generated from the same vector geometry, so the Dock and header logo stay consistent.
