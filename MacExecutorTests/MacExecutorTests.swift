@@ -3,6 +3,133 @@ import Testing
 @testable import MacExecutor
 
 struct MacExecutorTests {
+    private func createMockPlayer(
+        at location: URL,
+        identifier: String = "com.roblox.RobloxPlayer",
+        architecture: [UInt8] = [0xCF, 0xFA, 0xED, 0xFE, 0x07, 0, 0, 0x01]
+    ) throws -> URL {
+        let app = location.appendingPathComponent("Roblox.app", isDirectory: true)
+        let executableFolder = app.appendingPathComponent("Contents/MacOS", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: executableFolder, withIntermediateDirectories: true
+        )
+        let properties: [String: Any] = [
+            "CFBundleIdentifier": identifier,
+            "CFBundleExecutable": "RobloxPlayer",
+            "CFBundlePackageType": "APPL",
+            "CFBundleName": "Roblox"
+        ]
+        let info = try PropertyListSerialization.data(
+            fromPropertyList: properties, format: .xml, options: 0
+        )
+        try info.write(
+            to: app.appendingPathComponent("Contents/Info.plist")
+        )
+        try Data(architecture + [1, 2, 3, 4]).write(
+            to: executableFolder.appendingPathComponent("RobloxPlayer")
+        )
+        return app
+    }
+
+    @Test
+    func runtimeWorkingCopyPreservesPlayerExecutableAndNeverModifiesSource() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(
+            "rebilium-runtime-test-" + UUID().uuidString, isDirectory: true
+        )
+        defer { try? manager.removeItem(at: root) }
+
+        let source = try createMockPlayer(at: root.appendingPathComponent("install"))
+        var inspectedPaths: [String] = []
+        let manifest = try RobloxRuntimeMethod.prepare(
+            source: source,
+            workspaceRoot: root.appendingPathComponent("workspace"),
+            verifySignature: { inspectedPaths.append($0.path) }
+        )
+
+        #expect(inspectedPaths.count == 2)
+        #expect(inspectedPaths[0] == source.path)
+        #expect(inspectedPaths[1] == manifest.workingBundlePath)
+        #expect(manifest.method == RobloxRuntimeMethod.methodID)
+        #expect(manifest.schemaVersion == 1)
+        #expect(manifest.signingVerified)
+        #expect(manifest.modified == false)
+        #expect(manifest.launched == false)
+        #expect(manifest.sourceExecutableSHA256 == manifest.workingExecutableSHA256)
+        #expect(FileManager.default.fileExists(atPath: manifest.sourceBundlePath))
+        #expect(FileManager.default.fileExists(atPath: manifest.workingBundlePath))
+        #expect(manifest.sourceBundlePath != manifest.workingBundlePath)
+
+        let manifestURL = URL(fileURLWithPath: manifest.workingBundlePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("manifest.json")
+        let decoded = try JSONDecoder().decode(
+            RobloxRuntimeMethod.Manifest.self,
+            from: Data(contentsOf: manifestURL)
+        )
+        #expect(decoded == manifest)
+    }
+
+    @Test
+    func runtimeMethodRejectsNonPlayerAndOtherArchitecture() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(
+            "rebilium-reject-test-" + UUID().uuidString, isDirectory: true
+        )
+        defer { try? manager.removeItem(at: root) }
+
+        let fakeStudio = try createMockPlayer(
+            at: root.appendingPathComponent("studio"),
+            identifier: "com.roblox.RobloxStudio"
+        )
+        #expect(throws: RobloxRuntimeMethod.MethodError.self) {
+            try RobloxRuntimeMethod.executable(at: fakeStudio)
+        }
+
+        let wrongCPU = try createMockPlayer(
+            at: root.appendingPathComponent("arm"),
+            architecture: [0xCF, 0xFA, 0xED, 0xFE, 0x0C, 0, 0, 0x01]
+        )
+        #expect(throws: RobloxRuntimeMethod.MethodError.self) {
+            try RobloxRuntimeMethod.executable(at: wrongCPU)
+        }
+    }
+
+    @Test
+    func runtimeMethodDeletesFailedWorkingCopyWithoutChangingOriginal() throws {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent(
+            "rebilium-cleanup-test-" + UUID().uuidString, isDirectory: true
+        )
+        defer { try? manager.removeItem(at: root) }
+
+        let source = try createMockPlayer(at: root.appendingPathComponent("original"))
+        let sourceBinary = try RobloxRuntimeMethod.executable(at: source)
+        let originalData = try Data(contentsOf: sourceBinary)
+        let targetRoot = root.appendingPathComponent("working")
+        var verificationCount = 0
+
+        #expect(throws: RobloxRuntimeMethod.MethodError.self) {
+            try RobloxRuntimeMethod.prepare(
+                source: source,
+                workspaceRoot: targetRoot,
+                verifySignature: { _ in
+                    verificationCount += 1
+                    if verificationCount == 2 {
+                        throw RobloxRuntimeMethod.MethodError.signatureRejected("test")
+                    }
+                }
+            )
+        }
+
+        #expect(verificationCount == 2)
+        #expect(try Data(contentsOf: sourceBinary) == originalData)
+        let remaining = try manager.contentsOfDirectory(
+            atPath: targetRoot.path
+        )
+        #expect(remaining.isEmpty)
+    }
+
     @Test
     func studioStatusAcceptsOnlyVersionedCorrelatedReplies() throws {
         let request = BridgeEnvelope(
