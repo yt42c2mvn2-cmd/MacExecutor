@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 enum RebiliumStyle {
     static let violet = Color(red: 0.59, green: 0.43, blue: 0.98)
@@ -29,35 +30,29 @@ struct RebiliumGradientButtonStyle: ButtonStyle {
     }
 }
 
-/// Original geometric R badge with a tilted square cutout motif.
+/// The in-app badge uses the same compiled AppIcon artwork as the Dock.
+/// No separate mock logo, so the two cannot drift out of sync.
 struct RebiliumMark: View {
     var size: CGFloat = 42
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(RebiliumStyle.gradient)
-                .overlay {
-                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                        .strokeBorder(.white.opacity(0.25))
-                }
-
-            Text("R")
-                .font(.system(size: size * 0.66, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .offset(x: -size * 0.065, y: -size * 0.025)
-
-            Rectangle()
-                .fill(RebiliumStyle.blue)
-                .frame(width: size * 0.19, height: size * 0.19)
-                .rotationEffect(.degrees(27))
-                .overlay {
-                    Rectangle()
-                        .strokeBorder(.white, lineWidth: max(1, size * 0.045))
-                        .frame(width: size * 0.19, height: size * 0.19)
-                        .rotationEffect(.degrees(27))
-                }
-                .offset(x: size * 0.20, y: -size * 0.15)
+        Group {
+            if let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+               let icon = NSImage(contentsOf: iconURL) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+            } else {
+                // Only shown when the app is running without compiled icon assets.
+                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                    .fill(RebiliumStyle.gradient)
+                    .overlay {
+                        Text("R")
+                            .font(.system(size: size * 0.65, weight: .black))
+                            .foregroundStyle(.white)
+                    }
+            }
         }
         .frame(width: size, height: size)
         .accessibilityLabel("Rebilium logo")

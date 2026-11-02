@@ -4,11 +4,14 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-## v0.5 fixes and features
+## v0.6 improvements
 
 - Purple-to-blue gradient for primary actions
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
+- **Press-to-expand glass capsule**: the selected pill gently grows and glows while dragging, then springs to normal size when released
+- **Uniform main page height**: Scripts, Discover, and Settings share one full-size outer glass panel
+- **Matching in-app brand icon**: the header displays the same compiled AppIcon artwork as the Dock, replacing the old placeholder R
 - **Directly draggable Liquid Glass navigation pill** for Scripts, Discover, and Settings; drag to move the highlight and release to spring-snap to the nearest page (clicking works too)
 - **Seamless native macOS titlebar** with the standard red/yellow/green window controls, and app background extending beneath the titlebar
 - Rebilium R/glass Dock icon generated into the macOS asset catalog during builds, declared in Info.plist, and explicitly applied to the running Dock tile
@@ -48,3 +51,7 @@ Rebilium's centered segmented navigation uses SwiftUI `matchedGeometryEffect` fo
 ## Dock icon troubleshooting
 
 The runtime loads the compiled `AppIcon.icns` and applies it to the running Dock tile. The CI build also verifies that `MacExecutor.app/Contents/Resources/AppIcon.icns` is nonempty. If the old icon persists after you merge and pull this release, stop the app, choose **Product → Clean Build Folder** in Xcode (hold Option to reveal it if needed), and run again. A stale debug-app icon can survive previous builds because macOS caches application icons. Avoid resetting Dock preferences or deleting unrelated user data.
+
+## UI consistency (v0.6)
+
+The navigation capsule grows by 12 points in width and 6 points in height while held, remains centered under the pointer, and springs back on release. All three main pages share a common outer glass panel rather than each creating a separate page-sized background. The window header loads the compiled `AppIcon.icns` to match the Dock artwork, with a fallback only when running without bundled assets.
