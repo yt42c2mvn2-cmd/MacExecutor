@@ -4,6 +4,58 @@ import Testing
 
 struct MacExecutorTests {
     @Test
+    func installationPickerAcceptsOnlyPlayerBundles() {
+        let root = URL(fileURLWithPath: "/My Games/Roblox.app", isDirectory: true)
+        let inner = root.appendingPathComponent("Contents/MacOS/Roblox.app", isDirectory: true)
+        let studio = URL(fileURLWithPath: "/Applications/RobloxStudio.app", isDirectory: true)
+
+        #expect(RobloxClientRecognition.resolvePlayer(at: root) { candidate in
+            candidate == inner ? "com.roblox.RobloxPlayer" : nil
+        } == inner)
+
+        #expect(RobloxClientRecognition.resolvePlayer(at: inner) { candidate in
+            candidate == inner ? "com.roblox.RobloxPlayer" : nil
+        } == inner)
+
+        #expect(RobloxClientRecognition.resolvePlayer(at: studio) { _ in
+            "com.Roblox.RobloxStudio"
+        } == nil)
+    }
+
+    @Test
+    func selectedInstallationDoesNotClaimDifferentPlayerIsRunning() {
+        let selected = URL(fileURLWithPath: "/Applications/Roblox.app")
+        let elsewhere = URL(fileURLWithPath: "/Users/test/Games/Roblox.app")
+        let running = RobloxProcessDescription(
+            bundleIdentifier: "com.roblox.RobloxPlayer",
+            applicationURL: elsewhere,
+            processIdentifier: 3456
+        )
+
+        let selectedSnapshot = RobloxClientRecognition.snapshot(
+            runningApplications: [running],
+            installedApplicationURL: selected,
+            restrictToInstalledURL: true
+        )
+        #expect(selectedSnapshot.presence == .installed)
+        #expect(selectedSnapshot.processIdentifier == nil)
+
+        let autoSnapshot = RobloxClientRecognition.snapshot(
+            runningApplications: [running],
+            installedApplicationURL: selected
+        )
+        #expect(autoSnapshot.presence == .running)
+    }
+
+    @Test
+    func iconThemeManualChoicesStayPredictable() {
+        #expect(RebiliumIconTheme.isDark("dark"))
+        #expect(!RebiliumIconTheme.isDark("light"))
+        #expect(RebiliumIconTheme.imageAssetName(for: "dark") == "RebiliumDarkIcon")
+        #expect(RebiliumIconTheme.imageAssetName(for: "light") == "RebiliumLightIcon")
+    }
+
+    @Test
     func playerRunningIsRecognizedWithoutAssumingConnection() {
         let appURL = URL(fileURLWithPath: "/Applications/Roblox.app")
         let running = RobloxProcessDescription(

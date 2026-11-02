@@ -4,11 +4,14 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
-## v0.7 — passive Roblox Client Check
+## v0.8 — selectable Roblox installation and gradient icon variants
 
 - Purple-to-blue gradient for primary actions
 - Modern geometric **R** logo in the sidebar
 - Real macOS Tahoe Liquid Glass controls and a translucent dark workspace
+- **Custom Roblox installation location**: select a Player .app in Settings, validate its bundle ID, save the path, show the selected app in Finder, and return to automatic detection
+- **Matched light and dark icons**: base R with a tilted square fitted into the bowl and a smaller inset square; vivid gradient for light, neutral graphite gradient with subtle violet-blue accents for dark
+- **Icon appearance preference**: Automatic (follows macOS), Light, Dark; updates the Dock and the in-app badge
 - **Read-only Roblox Client Check** in Settings: reports Player running, Player installed but not running, or not found
 - Live status refresh on macOS app launch/quit notifications and a manual **Check Again** button
 - Only observes Launch Services/NSWorkspace and validated app bundles; no communication, probing, hooking or memory access
@@ -68,3 +71,14 @@ Open **Settings → Roblox Client Check** to see whether the macOS Roblox Player
 The check uses Apple's \`NSRunningApplication.runningApplications(withBundleIdentifier:)\`, \`NSWorkspace.urlForApplication(withBundleIdentifier:)\`, and local bundle metadata. It recognizes the Player identifier \`com.roblox.RobloxPlayer\`; Roblox Studio has a different identifier and does not count. It also examines Roblox's documented macOS application locations as a fallback. Status automatically refreshes on macOS app launch/quit and can be manually refreshed.
 
 **Connection readiness is unknown.** Detecting a running application does not show whether Roblox offers a usable/authorized API or that a connection would be possible. Rebilium does not send requests to Roblox, open a socket or port, attach to a process, read/write Roblox memory, run injection code, or alter the Roblox application. This release intentionally makes no attempt to establish communication.
+
+
+## Custom Roblox installation location (v0.8)
+
+Open **Settings → Roblox Client Check → Choose Roblox.app…** and pick the macOS Player application bundle. Rebilium accepts the outer Roblox.app wrapper or an inner Contents/MacOS/Roblox.app bundle, but requires the exact \`com.roblox.RobloxPlayer\` bundle identifier. Roblox Studio will be rejected. Your chosen path is saved in app preferences and retained between launches. **Use Automatic** clears the override.
+
+When you select a custom location, the **Running** indicator is scoped to that installation: a different Player instance running from another folder won't be reported as the selected installation. Moving or deleting a selected installation triggers a validation warning. This remains a passive presence check, never a process connection.
+
+## Rebilium icon appearance (v0.8)
+
+The vector icon generator creates identical geometric R/insert silhouettes for the light and graphite-dark variants. Light PNG sizes are bundled in AppIcon.appiconset; full-resolution light/dark assets are also bundled as RebiliumLightIcon and RebiliumDarkIcon for the Dock and header. Choose **Automatic**, **Light** or **Dark** in Settings; Automatic follows the macOS-wide appearance (not the always-dark code editor theme). Restart or re-focus Rebilium after changing the macOS system appearance to refresh the icon if needed.

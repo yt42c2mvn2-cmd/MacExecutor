@@ -251,6 +251,8 @@
 				"$(PROJECT_DIR)/MacExecutor/Assets.xcassets/AppIcon.appiconset/rebilium_256.png",
 				"$(PROJECT_DIR)/MacExecutor/Assets.xcassets/AppIcon.appiconset/rebilium_512.png",
 				"$(PROJECT_DIR)/MacExecutor/Assets.xcassets/AppIcon.appiconset/rebilium_1024.png",
+				"$(PROJECT_DIR)/MacExecutor/Assets.xcassets/RebiliumLightIcon.imageset/rebilium_light.png",
+				"$(PROJECT_DIR)/MacExecutor/Assets.xcassets/RebiliumDarkIcon.imageset/rebilium_dark.png",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

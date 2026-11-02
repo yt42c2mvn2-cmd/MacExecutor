@@ -2,13 +2,9 @@ import AppKit
 import Combine
 import Foundation
 
-/// A passive inspection of the Roblox Player's macOS application presence.
-/// No handles, IPC, network sockets, scripting hooks or process memory access.
+/// Passive inspection of Roblox Player. No IPC, sockets, hooks or memory access.
 enum RobloxPresence: Equatable {
-    case unchecked
-    case notFound
-    case installed
-    case running
+    case unchecked, notFound, installed, running
 }
 
 struct RobloxProcessDescription: Equatable {
@@ -43,21 +39,23 @@ struct RobloxClientSnapshot: Equatable {
 
     var explanation: String {
         switch presence {
-        case .unchecked:
-            "Run a local read-only check to see whether Roblox Player is present."
-        case .notFound:
-            "Roblox Player was not found through Launch Services or common application locations."
-        case .installed:
-            "A Roblox Player application was located, but no running player was detected."
-        case .running:
-            "macOS reports a running Roblox Player application. No connection was made."
+        case .unchecked: "Run a local read-only check to see whether Roblox Player is present."
+        case .notFound: "No Roblox Player installation was detected at the configured location."
+        case .installed: "The Player app was located, but a matching running Player was not detected."
+        case .running: "macOS reports a running Roblox Player application. No connection was made."
         }
     }
 
-    /// Identifying an app cannot establish the existence or safety of an
-    /// authorized communications interface.
     var connectionAssessment: String {
         "Unknown — no connection or compatibility test performed"
+    }
+}
+
+enum RobloxInstallationError: LocalizedError {
+    case notPlayer
+
+    var errorDescription: String? {
+        "That location is not a valid Roblox Player app. Choose Roblox.app, not Roblox Studio."
     }
 }
 
@@ -68,14 +66,39 @@ enum RobloxClientRecognition {
         identifier?.caseInsensitiveCompare(playerBundleIdentifier) == .orderedSame
     }
 
+    /// Accept either the actual Player bundle or Roblox's outer .app wrapper.
+    /// The provided lookup makes this resolver testable without an installation.
+    static func resolvePlayer(
+        at selectedURL: URL,
+        bundleIdentifierAt: (URL) -> String?
+    ) -> URL? {
+        let root = selectedURL.standardizedFileURL
+        let nested = root.appendingPathComponent("Contents/MacOS/Roblox.app", isDirectory: true)
+        for candidate in [root, nested] {
+            if isPlayer(bundleIdentifierAt(candidate)) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
     static func snapshot(
         runningApplications: [RobloxProcessDescription],
         installedApplicationURL: URL?,
+        restrictToInstalledURL: Bool = false,
         checkedAt: Date = .now
     ) -> RobloxClientSnapshot {
-        if let player = runningApplications.first(where: {
-            isPlayer($0.bundleIdentifier)
-        }) {
+        let running = runningApplications.first { process in
+            guard isPlayer(process.bundleIdentifier) else { return false }
+            guard restrictToInstalledURL else { return true }
+            guard let installedApplicationURL, let processURL = process.applicationURL else {
+                return false
+            }
+            return processURL.standardizedFileURL.resolvingSymlinksInPath()
+                == installedApplicationURL.standardizedFileURL.resolvingSymlinksInPath()
+        }
+
+        if let player = running {
             return RobloxClientSnapshot(
                 presence: .running,
                 applicationURL: player.applicationURL ?? installedApplicationURL,
@@ -85,10 +108,10 @@ enum RobloxClientRecognition {
             )
         }
 
-        if let url = installedApplicationURL {
+        if let installedApplicationURL {
             return RobloxClientSnapshot(
                 presence: .installed,
-                applicationURL: url,
+                applicationURL: installedApplicationURL,
                 bundleIdentifier: playerBundleIdentifier,
                 processIdentifier: nil,
                 checkedAt: checkedAt
@@ -107,13 +130,44 @@ enum RobloxClientRecognition {
 
 @MainActor
 final class RobloxClientInspector: ObservableObject {
+    static let installationPreferenceKey = "rebilium.robloxInstallationURL"
+
     @Published private(set) var snapshot: RobloxClientSnapshot = .unchecked
+    @Published private(set) var customInstallationPath: String?
+    @Published private(set) var installationError: String?
+
+    private let preferences: UserDefaults
+
+    init(preferences: UserDefaults = .standard) {
+        self.preferences = preferences
+        customInstallationPath = preferences.string(forKey: Self.installationPreferenceKey)
+    }
+
+    var isUsingCustomLocation: Bool { customInstallationPath != nil }
+
+    /// A rejected choice does not replace the saved installation.
+    @discardableResult
+    func setInstallation(_ selectedURL: URL) -> Bool {
+        guard let resolved = Self.resolvePlayer(at: selectedURL) else {
+            installationError = RobloxInstallationError.notPlayer.localizedDescription
+            return false
+        }
+        customInstallationPath = resolved.path
+        preferences.set(resolved.path, forKey: Self.installationPreferenceKey)
+        installationError = nil
+        refresh()
+        return true
+    }
+
+    func useAutomaticDetection() {
+        customInstallationPath = nil
+        preferences.removeObject(forKey: Self.installationPreferenceKey)
+        installationError = nil
+        refresh()
+    }
 
     func refresh() {
         let bundleID = RobloxClientRecognition.playerBundleIdentifier
-
-        // NSWorkspace exposes the process details already known to macOS.
-        // This does not launch, message, attach to, or inspect Roblox itself.
         let running = NSRunningApplication
             .runningApplications(withBundleIdentifier: bundleID)
             .map {
@@ -124,40 +178,47 @@ final class RobloxClientInspector: ObservableObject {
                 )
             }
 
-        let installed = NSWorkspace.shared
-            .urlForApplication(withBundleIdentifier: bundleID)
-            ?? Self.findPlayerAtKnownLocations()
+        if let customInstallationPath {
+            let url = URL(fileURLWithPath: customInstallationPath, isDirectory: true)
+            let validated = Self.resolvePlayer(at: url)
+            installationError = validated == nil
+                ? "The saved Player installation is no longer valid. Choose another app or use automatic detection."
+                : nil
+            snapshot = RobloxClientRecognition.snapshot(
+                runningApplications: running,
+                installedApplicationURL: validated,
+                restrictToInstalledURL: true
+            )
+            return
+        }
 
+        installationError = nil
+        let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            .flatMap { Self.resolvePlayer(at: $0) }
+            ?? Self.findPlayerAtKnownLocations()
         snapshot = RobloxClientRecognition.snapshot(
             runningApplications: running,
             installedApplicationURL: installed
         )
     }
 
-    /// Roblox's public macOS help describes an outer Roblox.app containing
-    /// the playable Roblox.app bundle in Contents/MacOS. These paths are only
-    /// read for existence and bundle identity; no executable is launched.
+    private static func resolvePlayer(at url: URL) -> URL? {
+        RobloxClientRecognition.resolvePlayer(at: url) { candidate in
+            Bundle(url: candidate)?.bundleIdentifier
+        }
+    }
+
     private static func findPlayerAtKnownLocations() -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let roots = [
             URL(fileURLWithPath: "/Applications/Roblox.app", isDirectory: true),
             home.appendingPathComponent("Applications/Roblox.app", isDirectory: true)
         ]
-
         for root in roots {
-            let nested = root.appendingPathComponent(
-                "Contents/MacOS/Roblox.app",
-                isDirectory: true
-            )
-            for candidate in [nested, root] {
-                guard let bundle = Bundle(url: candidate),
-                      RobloxClientRecognition.isPlayer(bundle.bundleIdentifier) else {
-                    continue
-                }
-                return candidate
+            if let player = resolvePlayer(at: root) {
+                return player
             }
         }
-
         return nil
     }
 }
