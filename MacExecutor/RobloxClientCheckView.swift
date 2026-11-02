@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 /// Read-only Roblox Player presence check. This view never offers Connect or
 /// Execute actions and does not make capability claims based on app detection.
@@ -47,6 +49,61 @@ struct RobloxClientCheckView: View {
                 .buttonStyle(.glass)
                 .accessibilityIdentifier("refreshRobloxClientButton")
             }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Roblox installation", systemImage: "folder")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Text(inspector.isUsingCustomLocation ? "CUSTOM" : "AUTOMATIC")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(RebiliumStyle.blue)
+                }
+
+                Text(inspector.customInstallationPath
+                    ?? "Automatically find Roblox Player using macOS and common install locations")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.73))
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+
+                HStack(spacing: 9) {
+                    Button {
+                        chooseInstallation()
+                    } label: {
+                        Label("Choose Roblox.app…", systemImage: "folder.badge.gearshape")
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityIdentifier("chooseRobloxInstallationButton")
+
+                    if inspector.isUsingCustomLocation {
+                        Button("Use Automatic") {
+                            inspector.useAutomaticDetection()
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityIdentifier("resetRobloxInstallationButton")
+                    }
+
+                    if let app = inspector.snapshot.applicationURL {
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([app])
+                        } label: {
+                            Label("Show in Finder", systemImage: "arrow.up.forward.app")
+                        }
+                        .buttonStyle(.glass)
+                    }
+                }
+
+                if let issue = inspector.installationError {
+                    Label(issue, systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 9) {
                 Image(systemName: statusSymbol)
@@ -98,6 +155,26 @@ struct RobloxClientCheckView: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
         .onAppear {
             inspector.refresh()
+        }
+    }
+
+    @MainActor
+    private func chooseInstallation() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Roblox Player"
+        panel.message = "Select Roblox.app (or the outer Roblox.app bundle), not Roblox Studio."
+        panel.prompt = "Use This App"
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        if let path = inspector.customInstallationPath {
+            panel.directoryURL = URL(fileURLWithPath: path)
+                .deletingLastPathComponent()
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            _ = inspector.setInstallation(url)
         }
     }
 
