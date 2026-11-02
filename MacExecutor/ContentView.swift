@@ -36,6 +36,8 @@ struct ContentView: View {
     @State private var backendDiagnostic = "Not tested"
     @State private var loopbackDiagnostic = "Not tested — start the host in Terminal first."
     @State private var isCheckingLoopback = false
+    @State private var studioConnectionStatus = "Not checked — pair Studio using the Terminal token."
+    @State private var isCheckingStudio = false
     @State private var isRenaming = false
     @State private var renameID: UUID?
     @State private var renameText = ""
@@ -416,6 +418,48 @@ struct ContentView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.white.opacity(0.55))
                         .fixedSize(horizontal: false, vertical: true)
+
+                    Divider().opacity(0.25)
+
+                    Label("Roblox Studio plugin pairing", systemImage: "puzzlepiece.extension")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("Studio plugins can contact localhost with your permission. Run the host, install the included local Studio plugin, paste the one-time pairing token from Terminal, and click Connect in Studio.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.67))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        isCheckingStudio = true
+                        studioConnectionStatus = "Checking the local backend for a Studio heartbeat…"
+                        Task {
+                            do {
+                                let connected = try await Task.detached(
+                                    priority: .userInitiated
+                                ) {
+                                    try LocalBridgeClient.studioIsConnected()
+                                }.value
+                                studioConnectionStatus = connected
+                                    ? "Roblox Studio connected — recent authenticated plugin heartbeat. No script was sent."
+                                    : "Roblox Studio not connected — check the plugin pairing token and HTTP permission."
+                            } catch {
+                                studioConnectionStatus = "Studio status unavailable — \(error.localizedDescription)"
+                            }
+                            isCheckingStudio = false
+                        }
+                    } label: {
+                        Label("Check Roblox Studio Connection", systemImage: "arrow.left.arrow.right")
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isCheckingStudio)
+                    .accessibilityIdentifier("checkStudioConnectionButton")
+
+                    Text(studioConnectionStatus)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.74))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("studioConnectionStatus")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
