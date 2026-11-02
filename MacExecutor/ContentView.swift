@@ -1,8 +1,25 @@
 import SwiftUI
 import AppKit
 
+private enum RebiliumPage: String, CaseIterable, Identifiable {
+    case scripts = "Scripts"
+    case discover = "Discover"
+    case settings = "Settings"
+
+    var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .scripts: "curlybraces"
+        case .discover: "sparkle.magnifyingglass"
+        case .settings: "gearshape"
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var library = ScriptLibrary()
+    @State private var currentPage: RebiliumPage = .scripts
     @AppStorage("luauExecutablePath") private var executablePath = ""
 
     @State private var searchText = ""
@@ -33,39 +50,32 @@ struct ContentView: View {
             RebiliumStyle.background.ignoresSafeArea()
 
             RadialGradient(
-                colors: [RebiliumStyle.violet.opacity(0.23), .clear],
+                colors: [RebiliumStyle.violet.opacity(0.22), .clear],
                 center: .topLeading,
-                startRadius: 10,
-                endRadius: 650
+                startRadius: 15,
+                endRadius: 690
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
             RadialGradient(
-                colors: [RebiliumStyle.blue.opacity(0.13), .clear],
+                colors: [RebiliumStyle.blue.opacity(0.12), .clear],
                 center: .bottomTrailing,
-                startRadius: 40,
-                endRadius: 550
+                startRadius: 30,
+                endRadius: 570
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
-            HStack(alignment: .top, spacing: 14) {
-                sidebar
-                    .frame(width: 230)
-
-                VStack(alignment: .leading, spacing: 14) {
-                    header
-                    tabStrip
-                    editor
-                    console
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 16) {
+                primaryNavigation
+                currentPageContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(16)
+            .padding(18)
         }
         .preferredColorScheme(.dark)
-        .frame(minWidth: 900, minHeight: 620)
+        .frame(minWidth: 930, minHeight: 630)
         .alert("Rename Script", isPresented: $isRenaming) {
             TextField("Script name", text: $renameText)
             Button("Rename") {
@@ -77,21 +87,157 @@ struct ContentView: View {
         }
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
+    private var primaryNavigation: some View {
+        HStack(spacing: 16) {
             HStack(spacing: 10) {
-                RebiliumMark(size: 44)
+                RebiliumMark(size: 43)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Rebilium")
-                        .font(.system(size: 21, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
                     Text("LUAU STUDIO")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .tracking(2.4)
-                        .foregroundStyle(.white.opacity(0.48))
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(2)
+                        .foregroundStyle(.white.opacity(0.50))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            GlassEffectContainer(spacing: 6) {
+                HStack(spacing: 6) {
+                    ForEach(RebiliumPage.allCases) { page in
+                        let active = currentPage == page
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                currentPage = page
+                            }
+                        } label: {
+                            Label(page.rawValue, systemImage: page.symbol)
+                                .font(.system(size: 13, weight: active ? .semibold : .medium))
+                                .foregroundStyle(active ? .white : .white.opacity(0.75))
+                                .padding(.horizontal, 19)
+                                .frame(height: 39)
+                                .background {
+                                    if active {
+                                        Capsule()
+                                            .fill(RebiliumStyle.gradient)
+                                            .shadow(color: RebiliumStyle.violet.opacity(0.35), radius: 9)
+                                    }
+                                }
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular, in: Capsule())
+                        .accessibilityIdentifier("navigation-\(page.rawValue)")
+                    }
+                }
+                .padding(5)
+            }
+            .glassEffect(.regular, in: Capsule())
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(RebiliumStyle.blue)
+                    .frame(width: 7, height: 7)
+                Text("Local Workspace")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.63))
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.horizontal, 5)
+    }
+
+    @ViewBuilder
+    private var currentPageContent: some View {
+        switch currentPage {
+        case .scripts:
+            scriptsWorkspace
+        case .discover:
+            ScriptBloxDiscoveryView { title, source in
+                library.importScript(title: title, source: source)
+                currentPage = .scripts
+                consoleOutput = "Imported “\(title)” into your library. Review before running."
+            }
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
+        case .settings:
+            settingsPage
+        }
+    }
+
+    private var scriptsWorkspace: some View {
+        HStack(alignment: .top, spacing: 14) {
+            sidebar.frame(width: 230)
+
+            VStack(alignment: .leading, spacing: 14) {
+                header
+                tabStrip
+                editor
+                console
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(15)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
+    }
+
+    private var settingsPage: some View {
+        VStack(alignment: .leading, spacing: 19) {
+            Text("Settings")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+            Text("Customize your local Rebilium workspace.")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+
+            VStack(alignment: .leading, spacing: 13) {
+                Label("Luau interpreter", systemImage: "terminal")
+                    .font(.headline)
+                Text("Choose the executable you built from the official Luau project.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(selectedLuauPath)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .textSelection(.enabled)
+                Button(action: chooseLuau) {
+                    Label("Choose Luau executable", systemImage: "folder")
+                }
+                .buttonStyle(RebiliumGradientButtonStyle())
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Local script storage", systemImage: "externaldrive")
+                    .font(.headline)
+                Text("Scripts are autosaved as JSON in your Application Support directory.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("~/Library/Application Support/Rebilium/scripts.json")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .textSelection(.enabled)
+                Text("\(library.scripts.count) saved scripts")
+                    .font(.caption)
+                    .foregroundStyle(RebiliumStyle.blue)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
+
+            Text("ScriptBlox browsing imports source for review only. Nothing executes until you press Run Script. The standalone Luau runtime cannot access Roblox APIs.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.58))
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(25)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 18) {
             Button {
                 _ = library.createScript()
             } label: {
