@@ -20,6 +20,9 @@ DEFAULT_PORT = 37827
 DEFAULT_HTTP_PORT = 37828
 MAX_MESSAGE_BYTES = 4096
 MAX_HTTP_BODY_BYTES = 256
+MAX_TRANSFER_BYTES = 65536
+MAX_TRANSFER_JSON_BYTES = MAX_TRANSFER_BYTES + 4096
+OFFER_LIFETIME_SECONDS = 600
 MARKER = "rebilium-local-ping-v1"
 STATUS_MARKER = "rebilium-studio-status-v1"
 STUDIO_CONNECTED = "studio-connected"
@@ -34,6 +37,7 @@ class StudioSessionState:
         self.clock = clock
         self.lock = threading.Lock()
         self.last_seen = None
+        self.pending = None
 
     def hello(self, token):
         if not hmac.compare_digest(token, self.token):
@@ -45,6 +49,41 @@ class StudioSessionState:
     def connected(self):
         with self.lock:
             return self.last_seen is not None and self.clock() - self.last_seen <= 30
+
+    def offer_script(self, token, title, source):
+        if not hmac.compare_digest(token, self.token):
+            return None
+        with self.lock:
+            if self.last_seen is None or self.clock() - self.last_seen > 30:
+                return None
+            self.pending = {
+                "id": str(uuid.uuid4()),
+                "title": title,
+                "source": source,
+                "created": self.clock(),
+            }
+            return self.pending["id"]
+
+    def pending_script(self, token):
+        if not hmac.compare_digest(token, self.token):
+            return None
+        with self.lock:
+            if not self.pending:
+                return None
+            if self.clock() - self.pending["created"] > OFFER_LIFETIME_SECONDS:
+                self.pending = None
+                return None
+            return {k: self.pending[k] for k in ("id", "title", "source")}
+
+    def acknowledge_import(self, token, script_id):
+        if not hmac.compare_digest(token, self.token):
+            return False
+        with self.lock:
+            if (self.pending is None or self.pending["id"] != script_id
+                or self.clock() - self.pending["created"] > OFFER_LIFETIME_SECONDS):
+                return False
+            self.pending = None
+            return True
 
 
 class BridgeHandler(socketserver.StreamRequestHandler):
@@ -106,45 +145,98 @@ class LocalBridgeServer(socketserver.ThreadingTCPServer):
 
 
 class StudioHTTPHandler(BaseHTTPRequestHandler):
-    """Only accepts an authenticated Studio heartbeat. No source scripts."""
+    """Token-guarded Studio presence, pending script preview and acknowledgement."""
 
-    def do_POST(self):
-        if self.path != "/v1/studio/hello":
-            self.reply(404, {"error": "not-found"})
-            return
-
+    def authenticated(self):
         token = self.headers.get("X-Rebilium-Token", "")
         if not hmac.compare_digest(token, self.server.studio_state.token):
             self.reply(403, {"error": "pairing-denied"})
-            return
+            return None
+        return token
 
+    def read_json(self, limit):
+        self.connection.settimeout(3)
         try:
             length = int(self.headers.get("Content-Length", "-1"))
         except ValueError:
             self.reply(400, {"error": "invalid-length"})
-            return
-        if not (0 <= length <= MAX_HTTP_BODY_BYTES):
+            return None
+        if length > limit:
             self.reply(413, {"error": "invalid-size"})
-            return
+            return None
+        if length < 1:
+            self.reply(400, {"error": "invalid-size"})
+            return None
         try:
             message = json.loads(self.rfile.read(length))
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, TimeoutError, OSError):
             self.reply(400, {"error": "invalid-json"})
-            return
-
-        if not isinstance(message, dict) or type(message.get("version")) is not int:
+            return None
+        if (not isinstance(message, dict)
+                or type(message.get("version")) is not int
+                or message["version"] != 1):
             self.reply(400, {"error": "invalid-message"})
-            return
-        if message["version"] != 1 or message.get("client") != "RebiliumStudioPlugin":
-            self.reply(400, {"error": "invalid-client"})
-            return
+            return None
+        return message
 
-        # The only effect is a 30-second presence lease.
-        self.server.studio_state.hello(token)
-        self.reply(200, {"version": 1, "ok": True, "heartbeatSeconds": 10})
+    def do_POST(self):
+        if self.path not in (
+            "/v1/studio/hello", "/v1/scripts/submit", "/v1/scripts/ack"
+        ):
+            self.reply(404, {"error": "not-found"})
+            return
+        token = self.authenticated()
+        if token is None:
+            return
+        if self.path == "/v1/studio/hello":
+            message = self.read_json(MAX_HTTP_BODY_BYTES)
+            if message is None:
+                return
+            if message.get("client") != "RebiliumStudioPlugin":
+                self.reply(400, {"error": "invalid-client"})
+                return
+            self.server.studio_state.hello(token)
+            self.reply(200, {"version": 1, "ok": True, "heartbeatSeconds": 10})
+        elif self.path == "/v1/scripts/submit":
+            message = self.read_json(MAX_TRANSFER_JSON_BYTES)
+            if message is None:
+                return
+            title, source = message.get("title"), message.get("source")
+            if (not isinstance(title, str) or not 1 <= len(title) <= 80
+                or not isinstance(source, str)
+                or not 1 <= len(source.encode("utf-8")) <= MAX_TRANSFER_BYTES):
+                self.reply(400, {"error": "invalid-script"})
+                return
+            script_id = self.server.studio_state.offer_script(token, title, source)
+            if script_id is None:
+                self.reply(409, {"error": "studio-not-paired"})
+                return
+            self.reply(200, {"version": 1, "ok": True, "id": script_id})
+        else:
+            message = self.read_json(MAX_HTTP_BODY_BYTES)
+            if message is None:
+                return
+            script_id = message.get("id")
+            if not isinstance(script_id, str):
+                self.reply(400, {"error": "invalid-id"})
+                return
+            if not self.server.studio_state.acknowledge_import(token, script_id):
+                self.reply(409, {"error": "unknown-or-expired-script"})
+                return
+            self.reply(200, {"version": 1, "ok": True})
 
     def do_GET(self):
-        self.reply(404, {"error": "not-found"})
+        if self.path != "/v1/scripts/pending":
+            self.reply(404, {"error": "not-found"})
+            return
+        token = self.authenticated()
+        if token is None:
+            return
+        pending = self.server.studio_state.pending_script(token)
+        if pending is None:
+            self.reply(200, {"version": 1, "pending": False})
+            return
+        self.reply(200, {"version": 1, "pending": True, **pending})
 
     def reply(self, status, message):
         data = json.dumps(message, separators=(",", ":")).encode("utf-8")
@@ -156,9 +248,8 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def log_message(self, format, *args):
-        # Avoid printing pairing secrets, URLs or arbitrary request headers.
+        # Do not log pairing secrets, source contents, or request headers.
         return
-
 
 class StudioHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
