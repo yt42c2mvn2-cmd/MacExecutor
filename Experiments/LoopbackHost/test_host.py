@@ -98,6 +98,7 @@ class StudioPairingTests(unittest.TestCase):
     def setUp(self):
         with self.session.lock:
             self.session.last_seen = None
+            self.session.pending = None
         self.now[0] = 100
 
     def send_hello(self, token, body=None, method="POST"):
@@ -119,6 +120,98 @@ class StudioPairingTests(unittest.TestCase):
             return response.status, response.read()
         finally:
             connection.close()
+
+    def script_request(self, method, path, payload=None, token=None):
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", self.http.server_address[1], timeout=3
+        )
+        try:
+            connection.request(
+                method, path,
+                body=None if payload is None else json.dumps(payload),
+                headers={
+                    "X-Rebilium-Token": token or self.session.token,
+                    "Content-Type": "application/json",
+                }
+            )
+            response = connection.getresponse()
+            return response.status, json.loads(response.read())
+        finally:
+            connection.close()
+
+    def test_script_offer_requires_live_studio_heartbeat(self):
+        source = "return {message = 'review only'}"
+        offer = {"version": 1, "title": "Hello", "source": source}
+        code, result = self.script_request("POST", "/v1/scripts/submit", offer)
+        self.assertEqual(code, 409)
+        self.assertEqual(result["error"], "studio-not-paired")
+
+        self.session.hello(self.session.token)
+        code, result = self.script_request(
+            "POST", "/v1/scripts/submit", offer, token="wrong-token"
+        )
+        self.assertEqual(code, 403)
+        self.assertIsNone(self.session.pending)
+
+    def test_script_offer_can_be_previewed_only_with_token_and_acked(self):
+        self.session.hello(self.session.token)
+        script = "return {x = 123}\n"
+        code, offer = self.script_request("POST", "/v1/scripts/submit", {
+            "version": 1, "title": "Example", "source": script
+        })
+        self.assertEqual(code, 200)
+        script_id = offer["id"]
+        uuid.UUID(script_id)
+        code, _ = self.script_request(
+            "GET", "/v1/scripts/pending", token="incorrect-token"
+        )
+        self.assertEqual(code, 403)
+        code, preview = self.script_request("GET", "/v1/scripts/pending")
+        self.assertEqual(code, 200)
+        self.assertTrue(preview["pending"])
+        self.assertEqual(preview["source"], script)
+        self.assertEqual(preview["title"], "Example")
+        self.assertEqual(preview["id"], script_id)
+
+        # The backend doesn't import or execute; this only consumes the offer
+        # after the plugin explicitly acknowledges successful Studio import.
+        code, ack = self.script_request("POST", "/v1/scripts/ack", {
+            "version": 1, "id": script_id
+        })
+        self.assertEqual(code, 200)
+        self.assertTrue(ack["ok"])
+        _, pending = self.script_request("GET", "/v1/scripts/pending")
+        self.assertFalse(pending["pending"])
+        code, _ = self.script_request("POST", "/v1/scripts/ack", {
+            "version": 1, "id": script_id
+        })
+        self.assertEqual(code, 409)
+
+    def test_script_offer_expires_without_auto_import(self):
+        self.session.hello(self.session.token)
+        code, offer = self.script_request("POST", "/v1/scripts/submit", {
+            "version": 1, "title": "Expired", "source": "return true"
+        })
+        self.assertEqual(code, 200)
+        self.now[0] += 601
+        _, pending = self.script_request("GET", "/v1/scripts/pending")
+        self.assertFalse(pending["pending"])
+        code, _ = self.script_request("POST", "/v1/scripts/ack", {
+            "version": 1, "id": offer["id"]
+        })
+        self.assertEqual(code, 409)
+
+    def test_script_offer_size_and_version_limits(self):
+        self.session.hello(self.session.token)
+        for offer in [
+            {"version": 1, "title": "X", "source": ""},
+            {"version": 1, "title": "X", "source": "x" * 65537},
+            {"version": 1, "title": "", "source": "return true"},
+            {"version": 2, "title": "X", "source": "return true"},
+        ]:
+            code, _ = self.script_request("POST", "/v1/scripts/submit", offer)
+            self.assertIn(code, (400, 413))
+        self.assertIsNone(self.session.pending)
 
     def status_over_tcp(self):
         frame = {
