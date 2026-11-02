@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var consoleOutput = "Ready. Select your Luau executable, then run a script."
     @State private var isRunning = false
+    @State private var backendDiagnostic = "Not tested"
     @State private var isRenaming = false
     @State private var renameID: UUID?
     @State private var renameText = ""
@@ -329,6 +330,40 @@ struct ContentView: View {
                     .foregroundStyle(.white.opacity(0.6))
 
                 RobloxClientCheckView(inspector: robloxInspector)
+
+                VStack(alignment: .leading, spacing: 11) {
+                    Label("Native backend lab", systemImage: "cpu")
+                        .font(.headline)
+
+                    Text("We verified a Delta-style native-library loading pattern in a separate test host. This app test validates the versioned ping/pong messaging layer in memory; neither test connects to Roblox.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            do {
+                                let result = try BridgeWireProtocol.selfTest()
+                                backendDiagnostic = "Passed — request \(result.requestBytes) bytes, reply \(result.responseBytes) bytes. No external connection."
+                            } catch {
+                                backendDiagnostic = "Failed — \(error.localizedDescription)"
+                            }
+                        } label: {
+                            Label("Run Backend Self-Test", systemImage: "checkmark.shield")
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityIdentifier("runBridgeSelfTestButton")
+
+                        Text(backendDiagnostic)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.72))
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("bridgeSelfTestStatus")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 17))
 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 12) {
