@@ -20,6 +20,7 @@ private enum RebiliumPage: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @StateObject private var library = ScriptLibrary()
     @State private var currentPage: RebiliumPage = .scripts
+    @Namespace private var navigationHighlight
     @AppStorage("luauExecutablePath") private var executablePath = ""
 
     @State private var searchText = ""
@@ -102,36 +103,46 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            GlassEffectContainer(spacing: 6) {
-                HStack(spacing: 6) {
-                    ForEach(RebiliumPage.allCases) { page in
-                        let active = currentPage == page
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                currentPage = page
-                            }
-                        } label: {
-                            Label(page.rawValue, systemImage: page.symbol)
-                                .font(.system(size: 13, weight: active ? .semibold : .medium))
-                                .foregroundStyle(active ? .white : .white.opacity(0.75))
-                                .padding(.horizontal, 19)
-                                .frame(height: 39)
-                                .background {
-                                    if active {
-                                        Capsule()
-                                            .fill(RebiliumStyle.gradient)
-                                            .shadow(color: RebiliumStyle.violet.opacity(0.35), radius: 9)
-                                    }
-                                }
-                                .contentShape(Capsule())
+            // One moving selection capsule. matchedGeometryEffect interpolates
+            // its position and width as the user switches destinations.
+            HStack(spacing: 5) {
+                ForEach(RebiliumPage.allCases) { page in
+                    let active = currentPage == page
+                    Button {
+                        withAnimation(.spring(response: 0.37, dampingFraction: 0.79)) {
+                            currentPage = page
                         }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular, in: Capsule())
-                        .accessibilityIdentifier("navigation-\(page.rawValue)")
+                    } label: {
+                        Label(page.rawValue, systemImage: page.symbol)
+                            .font(.system(size: 13, weight: active ? .semibold : .medium))
+                            .foregroundStyle(active ? .white : .white.opacity(0.75))
+                            .padding(.horizontal, 19)
+                            .frame(height: 39)
+                            .background {
+                                if active {
+                                    Capsule()
+                                        .fill(RebiliumStyle.gradient)
+                                        .overlay {
+                                            Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 1)
+                                        }
+                                        .shadow(
+                                            color: RebiliumStyle.violet.opacity(0.35),
+                                            radius: 10,
+                                            y: 3
+                                        )
+                                        .matchedGeometryEffect(
+                                            id: "selectedNavigationPill",
+                                            in: navigationHighlight
+                                        )
+                                }
+                            }
+                            .contentShape(Capsule())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("navigation-\(page.rawValue)")
                 }
-                .padding(5)
             }
+            .padding(5)
             .glassEffect(.regular, in: Capsule())
 
             HStack(spacing: 6) {
