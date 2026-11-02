@@ -4,6 +4,18 @@ This milestone tests actual communication between **two separate processes**.
 It is not a Roblox connection. The test host is a small Python 3 process
 you explicitly start, and it only responds to one strict ping/pong message.
 
+## Roblox Studio pairing (v1.2)
+
+The existing localhost host also serves an **opt-in Studio plugin heartbeat**
+endpoint on HTTP 127.0.0.1:37828. The terminal prints a one-time pairing
+token and the installed local plugin uses that token to send authenticated
+heartbeats. Rebilium verifies whether a heartbeat was received recently via
+**Settings → Native backend lab → Check Roblox Studio Connection**.
+
+See [RobloxStudioPlugin instructions](../RobloxStudioPlugin/README.md) for
+step-by-step installation. This handshake does not import or execute scripts,
+and does not involve the standalone Roblox Player.
+
 ## Run it
 
 1. Open Terminal at your MacExecutor repository folder.
