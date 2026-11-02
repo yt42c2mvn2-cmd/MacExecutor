@@ -12,6 +12,10 @@ jobs:
     runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v4
+      - name: Validate read-only real Player audit script
+        run: |
+          bash -n Experiments/RobloxPlayerInspection/inspect.sh
+          bash Experiments/RobloxPlayerInspection/inspect.sh --help
       - name: Verify native dylib / host source-handoff experiment
         run: bash Experiments/InProcessHost/build_and_test.sh
       - name: Unit-test diagnostic host and real Swift-to-Python loopback IPC
