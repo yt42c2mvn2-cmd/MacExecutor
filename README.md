@@ -4,6 +4,34 @@ Rebilium is a native macOS **Luau editor and local script runner**, built with S
 
 The Xcode project and executable target are still named MacExecutor internally to preserve the existing project configuration. The app's displayed name and window title are **Rebilium**.
 
+## v1.1 — first real local interprocess connection
+
+Rebilium now has a real **TCP ping/pong exchange** between the SwiftUI app and
+a separately running diagnostic host in Terminal. This is not the older
+in-memory self-test.
+
+1. From the MacExecutor repository folder, run:
+   `python3 Experiments/LoopbackHost/host.py`
+2. Leave Terminal open and start Rebilium from Xcode.
+3. Go to **Settings → Native backend lab → Ping Separate Test Host**.
+4. Confirm **Connected to local test host** and the request/reply byte counts.
+   The Terminal prints each request ID as it arrives.
+5. Stop the host with **Control+C**, then ping again. Rebilium should show
+   **Not connected — Test host not running**.
+
+The host binds **127.0.0.1:37827 only** and requires Python 3; it accepts a
+single versioned diagnostic ping, not arbitrary Luau or execute commands.
+Rebilium uses a bounded direct TCP connection on a background task and verifies
+the reply's version, action, marker, and request ID before reporting success.
+
+The [host instructions](Experiments/LoopbackHost/README.md) also include
+automated unit and end-to-end tests. CI runs these tests with a real Python
+listener and a Swift probe compiled from the same client code used by Rebilium.
+
+**Scope:** A local roundtrip demonstrates communication with our own process.
+It does **not** connect to Roblox Player, provide script execution inside
+Roblox, authenticate an independent peer, or modify any Roblox files.
+
 ## v1.0 prototype — native library and backend diagnostics
 
 Rebilium now includes an isolated macOS native-library loading experiment at
