@@ -4,7 +4,7 @@ import CryptoKit
 /// A method object representing an isolated, verified workspace for the
 /// *real installed* macOS Roblox Player. It never modifies a Roblox binary,
 /// changes its signature, launches the copy, or attaches to any process.
-enum RobloxRuntimeMethod {
+nonisolated enum RobloxRuntimeMethod {
     static let methodID = "signed-player-working-copy-v1"
     static let playerIdentifier = RobloxClientRecognition.playerBundleIdentifier
 
