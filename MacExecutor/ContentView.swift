@@ -23,6 +23,7 @@ struct ContentView: View {
     // Track the capsule continuously while the pointer is held down.
     @State private var navigationDragOffset: CGFloat?
     @State private var navigationGrabOffset: CGFloat?
+    @State private var navigationIsHeld = false
     private let navigationSegmentWidth: CGFloat = 132
     private let navigationPadding: CGFloat = 5
     @AppStorage("luauExecutablePath") private var executablePath = ""
@@ -135,12 +136,24 @@ struct ContentView: View {
                             .strokeBorder(.white.opacity(0.32), lineWidth: 1)
                     }
                     .shadow(
-                        color: RebiliumStyle.violet.opacity(0.29),
-                        radius: 9,
-                        y: 3
+                        color: RebiliumStyle.violet.opacity(navigationIsHeld ? 0.47 : 0.29),
+                        radius: navigationIsHeld ? 15 : 9,
+                        y: navigationIsHeld ? 5 : 3
                     )
-                    .frame(width: navigationSegmentWidth, height: 39)
-                    .offset(x: navigationPadding + navigationOffset)
+                    // A gentle "picked up" expansion while held.
+                    .frame(
+                        width: navigationSegmentWidth + (navigationIsHeld ? 12 : 0),
+                        height: navigationIsHeld ? 45 : 39
+                    )
+                    .animation(
+                        .spring(response: 0.23, dampingFraction: 0.68),
+                        value: navigationIsHeld
+                    )
+                    // Expand equally around the capsule's current center.
+                    .offset(
+                        x: navigationPadding + navigationOffset
+                            - (navigationIsHeld ? 6 : 0)
+                    )
                     .allowsHitTesting(false)
 
                 HStack(spacing: 0) {
@@ -152,6 +165,7 @@ struct ContentView: View {
                                 currentPage = page
                                 navigationDragOffset = nil
                                 navigationGrabOffset = nil
+                                navigationIsHeld = false
                             }
                         } label: {
                             Label(page.rawValue, systemImage: page.symbol)
@@ -182,6 +196,9 @@ struct ContentView: View {
                                 + (CGFloat(selectedNavigationIndex) + 0.5)
                                 * navigationSegmentWidth
                             navigationGrabOffset = value.startLocation.x - center
+                            withAnimation(.spring(response: 0.23, dampingFraction: 0.68)) {
+                                navigationIsHeld = true
+                            }
                         }
 
                         let pointerCenter = value.location.x - (navigationGrabOffset ?? 0)
@@ -208,6 +225,7 @@ struct ContentView: View {
                             currentPage = RebiliumPage.allCases[snapped]
                             navigationDragOffset = nil
                             navigationGrabOffset = nil
+                            navigationIsHeld = false
                         }
                     }
             )
@@ -226,21 +244,26 @@ struct ContentView: View {
         .padding(.horizontal, 5)
     }
 
-    @ViewBuilder
+    /// All main destinations share this one flexible glass canvas. Keeping
+    /// the outer panel outside the switch avoids differing page heights.
     private var currentPageContent: some View {
-        switch currentPage {
-        case .scripts:
-            scriptsWorkspace
-        case .discover:
-            ScriptBloxDiscoveryView { title, source in
-                library.importScript(title: title, source: source)
-                currentPage = .scripts
-                consoleOutput = "Imported “\(title)” into your library. Review before running."
+        ZStack(alignment: .topLeading) {
+            switch currentPage {
+            case .scripts:
+                scriptsWorkspace
+            case .discover:
+                ScriptBloxDiscoveryView { title, source in
+                    library.importScript(title: title, source: source)
+                    currentPage = .scripts
+                    consoleOutput = "Imported “\(title)” into your library. Review before running."
+                }
+            case .settings:
+                settingsPage
             }
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
-        case .settings:
-            settingsPage
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(15)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
     }
 
     private var scriptsWorkspace: some View {
@@ -255,8 +278,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(15)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var settingsPage: some View {
@@ -312,7 +334,6 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(25)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 27))
     }
 
     private var sidebar: some View {
