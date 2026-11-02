@@ -21,3 +21,21 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             -only-testing:MacExecutorTests \
             test
+      - name: Verify built app includes Rebilium Dock icon
+        run: |
+          APP_PATH=$(find "$HOME/Library/Developer/Xcode/DerivedData" \
+            -path '*/Build/Products/Debug/MacExecutor.app' -type d \
+            -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::Built MacExecutor.app not found"
+            exit 1
+          fi
+          ICON_PATH="$APP_PATH/Contents/Resources/AppIcon.icns"
+          if [ ! -s "$ICON_PATH" ]; then
+            echo "::error::AppIcon.icns not bundled in app resources"
+            exit 1
+          fi
+          echo "Verified Dock icon at $ICON_PATH"
+          file "$ICON_PATH"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' \
+            "$APP_PATH/Contents/Info.plist"
